@@ -27,7 +27,7 @@ Bundle本身也是实现了Parcelable接口的，从序列化数据的角度来�
 题目概述 本题在Android Framework的代码中，以patch的方式添加了一个有漏洞的VulnParcelable类，代码如下所示。
 public final class VulnParcelable implements Parcelable { private String TAG = &#34;VulnParcelable&#34;; private int opt; private int o1; private int o2; private byte[] mPayload; public VulnParcelable() { } // @UnsupportedAppUsage private VulnParcelable(Parcel in) { readFromParcel(in); } // 反序列化 // opt=0: 只读一个o1 // opt=1: 先读o2，然后读一个size，o2&gt;0才会再读一个buf[size] public void readFromParcel(@NonNull Parcel in) { Log." /><meta name="generator" content="Hugo 0.121.2">
 
-  <link rel="stylesheet" href="https://example.org/css/main.css" />
+  <link rel="stylesheet" href="https://learjet5.github.io/css/main.css" />
 
   
   
@@ -49,14 +49,14 @@ Bundle本身也是实现了Parcelable接口的，从序列化数据的角度来�
 题目概述 本题在Android Framework的代码中，以patch的方式添加了一个有漏洞的VulnParcelable类，代码如下所示。
 public final class VulnParcelable implements Parcelable { private String TAG = &#34;VulnParcelable&#34;; private int opt; private int o1; private int o2; private byte[] mPayload; public VulnParcelable() { } // @UnsupportedAppUsage private VulnParcelable(Parcel in) { readFromParcel(in); } // 反序列化 // opt=0: 只读一个o1 // opt=1: 先读o2，然后读一个size，o2&gt;0才会再读一个buf[size] public void readFromParcel(@NonNull Parcel in) { Log." />
 <meta property="og:type" content="article" />
-<meta property="og:url" content="https://example.org/blogs/vulnparcel/" /><meta property="og:image" content="https://example.org/digital-garden-logo.png" /><meta property="article:section" content="blogs" />
+<meta property="og:url" content="https://learjet5.github.io/blogs/vulnparcel/" /><meta property="og:image" content="https://learjet5.github.io/digital-garden-logo.png" /><meta property="article:section" content="blogs" />
 <meta property="article:published_time" content="2023-09-04T00:00:00+00:00" />
 <meta property="article:modified_time" content="2023-09-04T00:00:00+00:00" />
 
 
 
   <meta name="twitter:card" content="summary_large_image" />
-<meta name="twitter:image" content="https://example.org/digital-garden-logo.png" /><meta name="twitter:title" content="GEEKCON2023 AVSS挑战赛 VulnParcel题解"/>
+<meta name="twitter:image" content="https://learjet5.github.io/digital-garden-logo.png" /><meta name="twitter:title" content="GEEKCON2023 AVSS挑战赛 VulnParcel题解"/>
 <meta name="twitter:description" content="本文内容仅用于个人存档和技术交流学习，禁止使用文中内容进行未授权或恶意的攻击行为。
 前言 八月份参加了AVSS挑战赛，第一次打这种Android漏洞利用的比赛，比赛的两天只写出来了APP层的expReceiver和ZipZip，和前几名的队伍相比主要是VulnParcel没写出来（其他的内核题不太会qwq），故在赛后复盘一下这道Parcel漏洞利用的题目。
 赛题与exp下载链接：https://github.com/learjet5/GEEKCON2023-AVSS
@@ -91,7 +91,7 @@ Bundle本身也是实现了Parcelable接口的，从序列化数据的角度来�
 题目概述 本题在Android Framework的代码中，以patch的方式添加了一个有漏洞的VulnParcelable类，代码如下所示。
 public final class VulnParcelable implements Parcelable { private String TAG = &#34;VulnParcelable&#34;; private int opt; private int o1; private int o2; private byte[] mPayload; public VulnParcelable() { } // @UnsupportedAppUsage private VulnParcelable(Parcel in) { readFromParcel(in); } // 反序列化 // opt=0: 只读一个o1 // opt=1: 先读o2，然后读一个size，o2&gt;0才会再读一个buf[size] public void readFromParcel(@NonNull Parcel in) { Log."><meta itemprop="datePublished" content="2023-09-04T00:00:00+00:00" />
 <meta itemprop="dateModified" content="2023-09-04T00:00:00+00:00" />
-<meta itemprop="wordCount" content="542"><meta itemprop="image" content="https://example.org/digital-garden-logo.png" />
+<meta itemprop="wordCount" content="542"><meta itemprop="image" content="https://learjet5.github.io/digital-garden-logo.png" />
 <meta itemprop="keywords" content="" />
 
   <meta itemprop="name" content="GEEKCON2023 AVSS挑战赛 VulnParcel题解">
@@ -111,7 +111,7 @@ Bundle本身也是实现了Parcelable接口的，从序列化数据的角度来�
 题目概述 本题在Android Framework的代码中，以patch的方式添加了一个有漏洞的VulnParcelable类，代码如下所示。
 public final class VulnParcelable implements Parcelable { private String TAG = &#34;VulnParcelable&#34;; private int opt; private int o1; private int o2; private byte[] mPayload; public VulnParcelable() { } // @UnsupportedAppUsage private VulnParcelable(Parcel in) { readFromParcel(in); } // 反序列化 // opt=0: 只读一个o1 // opt=1: 先读o2，然后读一个size，o2&gt;0才会再读一个buf[size] public void readFromParcel(@NonNull Parcel in) { Log."><meta itemprop="datePublished" content="2023-09-04T00:00:00+00:00" />
 <meta itemprop="dateModified" content="2023-09-04T00:00:00+00:00" />
-<meta itemprop="wordCount" content="542"><meta itemprop="image" content="https://example.org/digital-garden-logo.png" />
+<meta itemprop="wordCount" content="542"><meta itemprop="image" content="https://learjet5.github.io/digital-garden-logo.png" />
 <meta itemprop="keywords" content="" />
 </head><body class="flex relative h-full min-h-screen"><aside
   class="will-change-transform transform transition-transform -translate-x-full absolute top-0 left-0 md:relative md:translate-x-0 w-3/4 md:basis-60 h-full min-h-screen p-3 bg-slate-50 dark:bg-slate-800 border-r border-slate-200 dark:border-slate-700 flex flex-col gap-2.5 z-20 sidebar flex-shrink-0">
@@ -123,7 +123,7 @@ public final class VulnParcelable implements Parcelable { private String TAG = &
   <line x1="18" y1="6" x2="6" y2="18" />
   <line x1="6" y1="6" x2="18" y2="18" />
 </svg></button>
-    <a href="https://example.org/" class="px-2">
+    <a href="https://learjet5.github.io/" class="px-2">
       <span style="font-size: 1.5rem;">Jet&#39;s Home</span>
     </a>
     <button aria-label="Toggle dark mode"
@@ -248,7 +248,7 @@ public final class VulnParcelable implements Parcelable { private String TAG = &
   lg:translate-x-0 md:w-1/5 h-full bg-slate-50 dark:bg-slate-800 border-r border-slate-200 dark:border-slate-700 lg:flex flex-col py-3 overflow-y-auto scroll-area flex-shrink-0">
     
     
-    <a href="https://example.org/blogs/">
+    <a href="https://learjet5.github.io/blogs/">
       <h2 class="font-bold mb-5 py-1 pl-12 pr-3 md:px-3">Blogs</h2>
     </a>
 <label class="mb-2 block px-2">
