@@ -304,6 +304,45 @@ Bundle本身也是实现了Parcelable接口的，从序列化数据的角度来�
 public final class VulnParcelable implements Parcelable { private String TAG = &#34;VulnParcelable&#34;; private int opt; private int o1; private int o2; private byte[] mPayload; public VulnParcelable() { } // @UnsupportedAppUsage private VulnParcelable(Parcel in) { readFromParcel(in); } // 反序列化 // opt=0: 只读一个o1 // opt=1: 先读o2，然后读一个size，o2&gt;0才会再读一个buf[size] public void readFromParcel(@NonNull Parcel in) { Log.
         </div>
       </a>
+      
+      <a class="article block px-3 py-4  hover:bg-slate-200 dark:hover:bg-slate-700 "
+        href="/blogs/printbox%E6%BC%8F%E6%B4%9E%E6%8C%96%E6%8E%98/">
+        
+        
+        <h3 class="text-lg font-semibold mb-0.5">某厂商PrintBox漏洞挖掘</h3>
+        <div
+          class="text-sm  text-slate-500 dark:text-slate-400  line-clamp-2">
+          （脱敏版）
+1. 背景 先前因为一些项目，和实验室的同学一起分析了某款打印机的固件，发现了一些命令注入等类型的漏洞。调研后发现，市面上还有一类智能打印盒子（Print Box）产品。此类产品体积较小，通常与移动端APP配合使用，将其与打印机连接后，即可将普通打印机升级为云打印机：以云服务端作为消息中转站，盒子能够接收移动端发送的任务，再传输给本地打印机，从而实现远程云打印。
+确定了漏洞挖掘目标后，我们购买了两台某厂商的智能打印盒子设备。
+2. 硬件相关操作 搜索了官网等数据源，没有找到相关固件信息，于是只能尝试自己提取固件。
+用钳子拆开打印盒子的外壳，发现里面只有一块PCB电路板，如下图：
+根据组件的结构和标识，可以确定PCB板上主要有三个关键器件：
+R328-S2芯片：SoC，ARM Cortex-A7，应该是Linux系统的。芯片本身有Embedded Memory（512Mbit DDR2，即64MB），也可以通过 SPI 连接外部Flash存储芯片。（官方PDF说明）
+XR829芯片：网络模块，支持2.4GHz的WiFi和蓝牙。
+Flash芯片：8个引脚。
+初步推测设备的文件系统存储在Flash芯片中，里面可能也包含了我们要分析的服务程序。
+2.1 编程器提取Flash固件 查阅相关资料可知，用编程器提取Flash芯片数据一般有两种操作方法：① 用热风枪把芯片从PCB板上吹下来，② 用烧录夹连接Flash芯片引脚和编程器。这里我们选择破坏性更小的后者方法，购买了编程器和烧录夹，店家附赠了教程和操作软件。
+软硬件操作环境：
+EzpXPro的编程器，8引脚的烧录夹。 在笔记本电脑上，用WindowsXP_32bits的虚拟机作为编程器软件的运行环境。 注意：编程器连电脑不能用USB转接器，而要把编程器直接连到笔记本的USB口。 操作步骤：
+首先，裸的编程器与电脑连线后，Windows系统会提示有新硬件，我们指定EZP_XPro驱动所在目录进行安装。
+其次，用烧录夹连接EzpXPro编程器和PCB板上的Flash芯片，烧录夹的两端是不同的：
+一端是pin脚：将这头插到编程器上，按照下图的位置插到上8脚。 另一端是夹子：用这头夹住PCB板上Flash芯片的8个管脚，夹得方向也是有讲究的，需要尝试几次。 最后，重新启动编程器配套软件，可以看到识别出了Flash芯片，如下图。选择“读出芯片”然后保存二进制固件即可。 实际操作时，接线大致如下图：
+用BinWalk将提取到的固件解包，发现里面有个squashfs的文件系统，但分析后似乎并没有发现包含打印盒子主功能的二进制程序。
+进一步分析/etc/init.d/下的开机脚本，发现其中一个脚本中有以下代码：
+# ... #/etc/phx chmod a+x /mnt/UDISK/start.sh source /mnt/UDISK/start.sh &amp; 但实际上，提取到的固件中/mnt/UDISK/目录是空的。推测设备初始化时有目录挂载等操作，核心服务程序可能存储在SoC芯片或其他某处组件中，设备开机时相关数据会被挂载到/mnt/UDISK/，进而运行打印盒子的主功能。
+因此，需要从其他途径获取运行了打印盒子核心功能的二进制程序。
+2.2 连接电路板UART串口 观察后还发现，PCB板背面有三个金属点（如下图），联想到UART串口的三个引脚GND、TX、RX。
+借助多用电表，测量设备开机时上面各个金属端口的电压，发现其确实满足UART串口的特征：
+左边是GND（易于测出）。 中间是RX（电压开机时不跳变，相对于GND是3.3V）。 右边是TX（电压开机时会跳变，后面稳定了就不跳了）。 事实上，电压跳变是说明当前端口在传输信息。板子上的TX在开机时电压跳变说明开机过程有信息输出，开机过一会稳定后不再输出调试信息，其电压就和RX一样相对于GND是稳定的3.3V了。
+用焊锡将跳线的一端和UART端口简单地连好后，另一端连USB头并插入电脑（如下图），用MobaXTerm软件的Serial选项新建会话，几次尝试后，波特率选38400即可正常回显shell。
+在串口shell中操作，发现了Flash提取的固件中不存在的/mnt/UDISK/start.sh和/mnt/UDISK/XXXXXClient，后者即为我们的分析对象。至此，硬件操作基本结束。
+3. 移动端分析 此款智能打印盒子在移动端的配套应用既有微信小程序（Documents\WeChat Files\Applet\下的xxx.wxapkg）又有安卓APP（apk包），可以通过程序逆向或流量分析的方法理清 打印盒子、移动应用、云服务端 三者之间的交互关系。
+主要有以下发现：
+通过逆向移动端应用发现，在初始配对阶段，设备主要通过蓝牙协议与移动端做数据交互，关键信息包括WiFi密码、设备绑定码等。 通过抓包分析流量发现，移动端应用在进行一些打印、管理操作时，是通过访问云服务端的GraphQL接口完成的，推测云端会进一步处理、转发这些请求给对应设备。 更多细节出于厂商安全考虑暂不透露。
+4. 设备固件分析 针对前面通过串口shell获取的/mnt/UDISK/XXXXXClient进行逆向分析。该程序是一个静态编译的ARM32程序，由字符串知存在UPX加壳，直接解开后发现其为Go编写的程序，函数符号也没有去除。
+        </div>
+      </a>
       </div>
     </section>
 
