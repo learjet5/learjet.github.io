@@ -11,7 +11,8 @@
     某厂商PrintBox漏洞挖掘 - Jet&#39;s Home
   </title>
 
-  <meta name="description" content="（脱敏版）
+  <meta name="description" content="本文内容仅用于个人存档和技术交流学习，禁止使用文中内容进行未授权或恶意的攻击行为。
+（脱敏版）
 1. 背景 先前因为一些项目，和实验室的同学一起分析了某款打印机的固件，发现了一些命令注入等类型的漏洞。调研后发现，市面上还有一类智能打印盒子（Print Box）产品。此类产品体积较小，通常与移动端APP配合使用，将其与打印机连接后，即可将普通打印机升级为云打印机：以云服务端作为消息中转站，盒子能够接收移动端发送的任务，再传输给本地打印机，从而实现远程云打印。
 确定了漏洞挖掘目标后，我们购买了两台某厂商的智能打印盒子设备。
 2. 硬件相关操作 搜索了官网等数据源，没有找到相关固件信息，于是只能尝试自己提取固件。
@@ -38,8 +39,7 @@ EzpXPro的编程器，8引脚的烧录夹。 在笔记本电脑上，用WindowsX
 在串口shell中操作，发现了Flash提取的固件中不存在的/mnt/UDISK/start.sh和/mnt/UDISK/XXXXXClient，后者即为我们的分析对象。至此，硬件操作基本结束。
 3. 移动端分析 此款智能打印盒子在移动端的配套应用既有微信小程序（Documents\WeChat Files\Applet\下的xxx.wxapkg）又有安卓APP（apk包），可以通过程序逆向或流量分析的方法理清 打印盒子、移动应用、云服务端 三者之间的交互关系。
 主要有以下发现：
-通过逆向移动端应用发现，在初始配对阶段，设备主要通过蓝牙协议与移动端做数据交互，关键信息包括WiFi密码、设备绑定码等。 通过抓包分析流量发现，移动端应用在进行一些打印、管理操作时，是通过访问云服务端的GraphQL接口完成的，推测云端会进一步处理、转发这些请求给对应设备。 更多细节出于厂商安全考虑暂不透露。
-4. 设备固件分析 针对前面通过串口shell获取的/mnt/UDISK/XXXXXClient进行逆向分析。该程序是一个静态编译的ARM32程序，由字符串知存在UPX加壳，直接解开后发现其为Go编写的程序，函数符号也没有去除。" /><meta name="generator" content="Hugo 0.121.2">
+通过逆向移动端应用发现，在初始配对阶段，设备主要通过蓝牙协议与移动端做数据交互，关键信息包括WiFi密码、设备绑定码等。 通过抓包分析流量发现，移动端应用在进行一些打印、管理操作时，是通过访问云服务端的GraphQL接口完成的，推测云端会进一步处理、转发这些请求给对应设备。 更多细节出于厂商安全考虑暂不透露。" /><meta name="generator" content="Hugo 0.121.2">
 
   <link rel="stylesheet" href="https://learjet5.github.io/css/main.css" />
 
@@ -47,7 +47,8 @@ EzpXPro的编程器，8引脚的烧录夹。 在笔记本电脑上，用WindowsX
   
 
   <meta property="og:title" content="某厂商PrintBox漏洞挖掘" />
-<meta property="og:description" content="（脱敏版）
+<meta property="og:description" content="本文内容仅用于个人存档和技术交流学习，禁止使用文中内容进行未授权或恶意的攻击行为。
+（脱敏版）
 1. 背景 先前因为一些项目，和实验室的同学一起分析了某款打印机的固件，发现了一些命令注入等类型的漏洞。调研后发现，市面上还有一类智能打印盒子（Print Box）产品。此类产品体积较小，通常与移动端APP配合使用，将其与打印机连接后，即可将普通打印机升级为云打印机：以云服务端作为消息中转站，盒子能够接收移动端发送的任务，再传输给本地打印机，从而实现远程云打印。
 确定了漏洞挖掘目标后，我们购买了两台某厂商的智能打印盒子设备。
 2. 硬件相关操作 搜索了官网等数据源，没有找到相关固件信息，于是只能尝试自己提取固件。
@@ -74,8 +75,7 @@ EzpXPro的编程器，8引脚的烧录夹。 在笔记本电脑上，用WindowsX
 在串口shell中操作，发现了Flash提取的固件中不存在的/mnt/UDISK/start.sh和/mnt/UDISK/XXXXXClient，后者即为我们的分析对象。至此，硬件操作基本结束。
 3. 移动端分析 此款智能打印盒子在移动端的配套应用既有微信小程序（Documents\WeChat Files\Applet\下的xxx.wxapkg）又有安卓APP（apk包），可以通过程序逆向或流量分析的方法理清 打印盒子、移动应用、云服务端 三者之间的交互关系。
 主要有以下发现：
-通过逆向移动端应用发现，在初始配对阶段，设备主要通过蓝牙协议与移动端做数据交互，关键信息包括WiFi密码、设备绑定码等。 通过抓包分析流量发现，移动端应用在进行一些打印、管理操作时，是通过访问云服务端的GraphQL接口完成的，推测云端会进一步处理、转发这些请求给对应设备。 更多细节出于厂商安全考虑暂不透露。
-4. 设备固件分析 针对前面通过串口shell获取的/mnt/UDISK/XXXXXClient进行逆向分析。该程序是一个静态编译的ARM32程序，由字符串知存在UPX加壳，直接解开后发现其为Go编写的程序，函数符号也没有去除。" />
+通过逆向移动端应用发现，在初始配对阶段，设备主要通过蓝牙协议与移动端做数据交互，关键信息包括WiFi密码、设备绑定码等。 通过抓包分析流量发现，移动端应用在进行一些打印、管理操作时，是通过访问云服务端的GraphQL接口完成的，推测云端会进一步处理、转发这些请求给对应设备。 更多细节出于厂商安全考虑暂不透露。" />
 <meta property="og:type" content="article" />
 <meta property="og:url" content="https://learjet5.github.io/blogs/printbox%E6%BC%8F%E6%B4%9E%E6%8C%96%E6%8E%98/" /><meta property="og:image" content="https://learjet5.github.io/digital-garden-logo.png" /><meta property="article:section" content="blogs" />
 <meta property="article:published_time" content="2024-02-21T00:00:00+00:00" />
@@ -85,7 +85,8 @@ EzpXPro的编程器，8引脚的烧录夹。 在笔记本电脑上，用WindowsX
 
   <meta name="twitter:card" content="summary_large_image" />
 <meta name="twitter:image" content="https://learjet5.github.io/digital-garden-logo.png" /><meta name="twitter:title" content="某厂商PrintBox漏洞挖掘"/>
-<meta name="twitter:description" content="（脱敏版）
+<meta name="twitter:description" content="本文内容仅用于个人存档和技术交流学习，禁止使用文中内容进行未授权或恶意的攻击行为。
+（脱敏版）
 1. 背景 先前因为一些项目，和实验室的同学一起分析了某款打印机的固件，发现了一些命令注入等类型的漏洞。调研后发现，市面上还有一类智能打印盒子（Print Box）产品。此类产品体积较小，通常与移动端APP配合使用，将其与打印机连接后，即可将普通打印机升级为云打印机：以云服务端作为消息中转站，盒子能够接收移动端发送的任务，再传输给本地打印机，从而实现远程云打印。
 确定了漏洞挖掘目标后，我们购买了两台某厂商的智能打印盒子设备。
 2. 硬件相关操作 搜索了官网等数据源，没有找到相关固件信息，于是只能尝试自己提取固件。
@@ -112,12 +113,12 @@ EzpXPro的编程器，8引脚的烧录夹。 在笔记本电脑上，用WindowsX
 在串口shell中操作，发现了Flash提取的固件中不存在的/mnt/UDISK/start.sh和/mnt/UDISK/XXXXXClient，后者即为我们的分析对象。至此，硬件操作基本结束。
 3. 移动端分析 此款智能打印盒子在移动端的配套应用既有微信小程序（Documents\WeChat Files\Applet\下的xxx.wxapkg）又有安卓APP（apk包），可以通过程序逆向或流量分析的方法理清 打印盒子、移动应用、云服务端 三者之间的交互关系。
 主要有以下发现：
-通过逆向移动端应用发现，在初始配对阶段，设备主要通过蓝牙协议与移动端做数据交互，关键信息包括WiFi密码、设备绑定码等。 通过抓包分析流量发现，移动端应用在进行一些打印、管理操作时，是通过访问云服务端的GraphQL接口完成的，推测云端会进一步处理、转发这些请求给对应设备。 更多细节出于厂商安全考虑暂不透露。
-4. 设备固件分析 针对前面通过串口shell获取的/mnt/UDISK/XXXXXClient进行逆向分析。该程序是一个静态编译的ARM32程序，由字符串知存在UPX加壳，直接解开后发现其为Go编写的程序，函数符号也没有去除。"/>
+通过逆向移动端应用发现，在初始配对阶段，设备主要通过蓝牙协议与移动端做数据交互，关键信息包括WiFi密码、设备绑定码等。 通过抓包分析流量发现，移动端应用在进行一些打印、管理操作时，是通过访问云服务端的GraphQL接口完成的，推测云端会进一步处理、转发这些请求给对应设备。 更多细节出于厂商安全考虑暂不透露。"/>
 
 
   <meta itemprop="name" content="某厂商PrintBox漏洞挖掘">
-<meta itemprop="description" content="（脱敏版）
+<meta itemprop="description" content="本文内容仅用于个人存档和技术交流学习，禁止使用文中内容进行未授权或恶意的攻击行为。
+（脱敏版）
 1. 背景 先前因为一些项目，和实验室的同学一起分析了某款打印机的固件，发现了一些命令注入等类型的漏洞。调研后发现，市面上还有一类智能打印盒子（Print Box）产品。此类产品体积较小，通常与移动端APP配合使用，将其与打印机连接后，即可将普通打印机升级为云打印机：以云服务端作为消息中转站，盒子能够接收移动端发送的任务，再传输给本地打印机，从而实现远程云打印。
 确定了漏洞挖掘目标后，我们购买了两台某厂商的智能打印盒子设备。
 2. 硬件相关操作 搜索了官网等数据源，没有找到相关固件信息，于是只能尝试自己提取固件。
@@ -144,14 +145,14 @@ EzpXPro的编程器，8引脚的烧录夹。 在笔记本电脑上，用WindowsX
 在串口shell中操作，发现了Flash提取的固件中不存在的/mnt/UDISK/start.sh和/mnt/UDISK/XXXXXClient，后者即为我们的分析对象。至此，硬件操作基本结束。
 3. 移动端分析 此款智能打印盒子在移动端的配套应用既有微信小程序（Documents\WeChat Files\Applet\下的xxx.wxapkg）又有安卓APP（apk包），可以通过程序逆向或流量分析的方法理清 打印盒子、移动应用、云服务端 三者之间的交互关系。
 主要有以下发现：
-通过逆向移动端应用发现，在初始配对阶段，设备主要通过蓝牙协议与移动端做数据交互，关键信息包括WiFi密码、设备绑定码等。 通过抓包分析流量发现，移动端应用在进行一些打印、管理操作时，是通过访问云服务端的GraphQL接口完成的，推测云端会进一步处理、转发这些请求给对应设备。 更多细节出于厂商安全考虑暂不透露。
-4. 设备固件分析 针对前面通过串口shell获取的/mnt/UDISK/XXXXXClient进行逆向分析。该程序是一个静态编译的ARM32程序，由字符串知存在UPX加壳，直接解开后发现其为Go编写的程序，函数符号也没有去除。"><meta itemprop="datePublished" content="2024-02-21T00:00:00+00:00" />
+通过逆向移动端应用发现，在初始配对阶段，设备主要通过蓝牙协议与移动端做数据交互，关键信息包括WiFi密码、设备绑定码等。 通过抓包分析流量发现，移动端应用在进行一些打印、管理操作时，是通过访问云服务端的GraphQL接口完成的，推测云端会进一步处理、转发这些请求给对应设备。 更多细节出于厂商安全考虑暂不透露。"><meta itemprop="datePublished" content="2024-02-21T00:00:00+00:00" />
 <meta itemprop="dateModified" content="2024-02-21T00:00:00+00:00" />
-<meta itemprop="wordCount" content="79"><meta itemprop="image" content="https://learjet5.github.io/digital-garden-logo.png" />
+<meta itemprop="wordCount" content="80"><meta itemprop="image" content="https://learjet5.github.io/digital-garden-logo.png" />
 <meta itemprop="keywords" content="" />
 
   <meta itemprop="name" content="某厂商PrintBox漏洞挖掘">
-<meta itemprop="description" content="（脱敏版）
+<meta itemprop="description" content="本文内容仅用于个人存档和技术交流学习，禁止使用文中内容进行未授权或恶意的攻击行为。
+（脱敏版）
 1. 背景 先前因为一些项目，和实验室的同学一起分析了某款打印机的固件，发现了一些命令注入等类型的漏洞。调研后发现，市面上还有一类智能打印盒子（Print Box）产品。此类产品体积较小，通常与移动端APP配合使用，将其与打印机连接后，即可将普通打印机升级为云打印机：以云服务端作为消息中转站，盒子能够接收移动端发送的任务，再传输给本地打印机，从而实现远程云打印。
 确定了漏洞挖掘目标后，我们购买了两台某厂商的智能打印盒子设备。
 2. 硬件相关操作 搜索了官网等数据源，没有找到相关固件信息，于是只能尝试自己提取固件。
@@ -178,10 +179,9 @@ EzpXPro的编程器，8引脚的烧录夹。 在笔记本电脑上，用WindowsX
 在串口shell中操作，发现了Flash提取的固件中不存在的/mnt/UDISK/start.sh和/mnt/UDISK/XXXXXClient，后者即为我们的分析对象。至此，硬件操作基本结束。
 3. 移动端分析 此款智能打印盒子在移动端的配套应用既有微信小程序（Documents\WeChat Files\Applet\下的xxx.wxapkg）又有安卓APP（apk包），可以通过程序逆向或流量分析的方法理清 打印盒子、移动应用、云服务端 三者之间的交互关系。
 主要有以下发现：
-通过逆向移动端应用发现，在初始配对阶段，设备主要通过蓝牙协议与移动端做数据交互，关键信息包括WiFi密码、设备绑定码等。 通过抓包分析流量发现，移动端应用在进行一些打印、管理操作时，是通过访问云服务端的GraphQL接口完成的，推测云端会进一步处理、转发这些请求给对应设备。 更多细节出于厂商安全考虑暂不透露。
-4. 设备固件分析 针对前面通过串口shell获取的/mnt/UDISK/XXXXXClient进行逆向分析。该程序是一个静态编译的ARM32程序，由字符串知存在UPX加壳，直接解开后发现其为Go编写的程序，函数符号也没有去除。"><meta itemprop="datePublished" content="2024-02-21T00:00:00+00:00" />
+通过逆向移动端应用发现，在初始配对阶段，设备主要通过蓝牙协议与移动端做数据交互，关键信息包括WiFi密码、设备绑定码等。 通过抓包分析流量发现，移动端应用在进行一些打印、管理操作时，是通过访问云服务端的GraphQL接口完成的，推测云端会进一步处理、转发这些请求给对应设备。 更多细节出于厂商安全考虑暂不透露。"><meta itemprop="datePublished" content="2024-02-21T00:00:00+00:00" />
 <meta itemprop="dateModified" content="2024-02-21T00:00:00+00:00" />
-<meta itemprop="wordCount" content="79"><meta itemprop="image" content="https://learjet5.github.io/digital-garden-logo.png" />
+<meta itemprop="wordCount" content="80"><meta itemprop="image" content="https://learjet5.github.io/digital-garden-logo.png" />
 <meta itemprop="keywords" content="" />
 </head><body class="flex relative h-full min-h-screen"><aside
   class="will-change-transform transform transition-transform -translate-x-full absolute top-0 left-0 md:relative md:translate-x-0 w-3/4 md:basis-60 h-full min-h-screen p-3 bg-slate-50 dark:bg-slate-800 border-r border-slate-200 dark:border-slate-700 flex flex-col gap-2.5 z-20 sidebar flex-shrink-0">
@@ -355,7 +355,8 @@ EzpXPro的编程器，8引脚的烧录夹。 在笔记本电脑上，用WindowsX
         <h3 class="text-lg font-semibold mb-0.5">某厂商PrintBox漏洞挖掘</h3>
         <div
           class="text-sm  text-slate-400  line-clamp-2">
-          （脱敏版）
+          本文内容仅用于个人存档和技术交流学习，禁止使用文中内容进行未授权或恶意的攻击行为。
+（脱敏版）
 1. 背景 先前因为一些项目，和实验室的同学一起分析了某款打印机的固件，发现了一些命令注入等类型的漏洞。调研后发现，市面上还有一类智能打印盒子（Print Box）产品。此类产品体积较小，通常与移动端APP配合使用，将其与打印机连接后，即可将普通打印机升级为云打印机：以云服务端作为消息中转站，盒子能够接收移动端发送的任务，再传输给本地打印机，从而实现远程云打印。
 确定了漏洞挖掘目标后，我们购买了两台某厂商的智能打印盒子设备。
 2. 硬件相关操作 搜索了官网等数据源，没有找到相关固件信息，于是只能尝试自己提取固件。
@@ -383,15 +384,14 @@ EzpXPro的编程器，8引脚的烧录夹。 在笔记本电脑上，用WindowsX
 3. 移动端分析 此款智能打印盒子在移动端的配套应用既有微信小程序（Documents\WeChat Files\Applet\下的xxx.wxapkg）又有安卓APP（apk包），可以通过程序逆向或流量分析的方法理清 打印盒子、移动应用、云服务端 三者之间的交互关系。
 主要有以下发现：
 通过逆向移动端应用发现，在初始配对阶段，设备主要通过蓝牙协议与移动端做数据交互，关键信息包括WiFi密码、设备绑定码等。 通过抓包分析流量发现，移动端应用在进行一些打印、管理操作时，是通过访问云服务端的GraphQL接口完成的，推测云端会进一步处理、转发这些请求给对应设备。 更多细节出于厂商安全考虑暂不透露。
-4. 设备固件分析 针对前面通过串口shell获取的/mnt/UDISK/XXXXXClient进行逆向分析。该程序是一个静态编译的ARM32程序，由字符串知存在UPX加壳，直接解开后发现其为Go编写的程序，函数符号也没有去除。
         </div>
       </a>
       
       <a class="article block px-3 py-4  hover:bg-slate-200 dark:hover:bg-slate-700 "
-        href="/blogs/datacon%E8%AE%B0%E5%BD%95/">
+        href="/blogs/datacon%E6%AF%94%E8%B5%9B%E8%AE%B0%E5%BD%95/">
         
         
-        <h3 class="text-lg font-semibold mb-0.5">Datacon记录</h3>
+        <h3 class="text-lg font-semibold mb-0.5">Datacon比赛记录</h3>
         <div
           class="text-sm  text-slate-500 dark:text-slate-400  line-clamp-2">
           1. 简介 2022年12月当时在打物联网安全赛道，用实验室先前论文SFuzz的代码改改，能较好地解决RTOS固件的相关题目，但第三题整数溢出漏洞检测在短时间内写出来的工具还是效果不佳。
@@ -409,7 +409,8 @@ import idautils import idc import ida_idp import ida_funcs import ida_nalt impor
         <h3 class="text-lg font-semibold mb-0.5">Android APP抓包方案调研</h3>
         <div
           class="text-sm  text-slate-500 dark:text-slate-400  line-clamp-2">
-          1. 背景 在移动安全研究中，如果要对一个APP进行逆向分析、进而了解其交互行为，流量分析是非常重要的一个手段。
+          本文内容仅用于个人存档和技术交流学习，禁止使用文中内容进行未授权或恶意的攻击行为。
+1. 背景 在移动安全研究中，如果要对一个APP进行逆向分析、进而了解其交互行为，流量分析是非常重要的一个手段。
 而Android APP流量分析虽然是一个老生常谈的话题，但其中仍有许多坑点。同时，对于以下这些特殊情况，常见的抓包手段可能并不适用，比如：
 没有安卓真机的苹果用户； 需要进行长期自动化流量分析的研究人员； 对国际APP（需要额外配置科学上网代理才能正常使用的APP）有分析需求的研究人员。 针对不同需求场景和硬件条件，本文介绍了两种安卓手机APP流量抓取方案，能够达到较为稳定的抓包效果。
 2. 技术路线 2.1 Redroid云手机 + LAMDA框架 LAMDA框架是一个用于安卓逆向及自动化的辅助框架，集成了多种功能。LAMDA的服务端需要在待控制的目标安卓设备上安装，客户端则可以是任一个能运行python环境并安装了lamda模块（pip3 install -U lamda）的终端。
@@ -435,7 +436,6 @@ LAMDA框架中集成了mitmproxy组件，mitmproxy是一种常用的Man-in-the-M
 参考 [1] https://github.com/rev1si0n/lamda
 [2] https://github.com/remote-android/redroid-doc
 [3] https://github.com/LSPosed/LSPosed
-[4] https://github.
         </div>
       </a>
       
@@ -495,6 +495,38 @@ ASP_handlers_list数组：记录每种ASP操作与handler函数的映射关系�
 漏洞点位于 sub_83A90，该函数是 usb_device.
         </div>
       </a>
+      
+      <a class="article block px-3 py-4  hover:bg-slate-200 dark:hover:bg-slate-700 "
+        href="/blogs/sjtuctf2023-babyheap/">
+        
+        
+        <h3 class="text-lg font-semibold mb-0.5">SJTUCTF2023 babyheap复盘</h3>
+        <div
+          class="text-sm  text-slate-500 dark:text-slate-400  line-clamp-2">
+          整理、记录下校赛遇到的一道堆利用题目。这道题我比赛时拿了一血，最后也只有2解。
+附件：babyheap，libc-2.36.so。
+1. 题目 运行checksec ./babyheap，四项保护全开。采用的是较新的glibc。开始写之前手动从glibc源码编译出了debug版本的 libc-2.36.so，方便调试。
+题目形式是堆题中经典的菜单题，比较明显的特征是：没有edit功能，只有add、delete、show。
+快速看了下反编译代码，发现了两处疑似的问题点：
+Double Free:
+Leak:
+根据“无法edit”这个特征，在网上搜了下思路，发现大概是需要用到house of apple的利用手法。
+2. 利用思路 最开始的思路是：先利用UAF+unsorted bin泄露libc地址；再利用double free实现任意堆块分配（需要bypass safe-unlink）；最后覆盖free_hook从而劫持控制流。但发现2.34之后就没有hook机制了🤦‍，需要用 IO_FILE exploitation，于是去学了下glibc新版本的一些安全特性。
+新版本的glibc特点：
+glibc-2.34之后，__free_hook等其他hook机制被移除了，没办法通过此处劫持控制流。 引入了Tcache double free的检查，用House of Botcake绕过：https://forum.butian.net/share/1709 glibc-2.32之后引入safe-unlink机制，Fastbin 和 Tcache bin 的指针都做了加密处理：https://www.ctfiot.com/65732.html（右移12bit后异或的操作）。 glibc-2.32之后还引入tcache和fastbin中申请和释放内存地址的对齐检测。 有的IO函数存在PTR_DEMANGLE（指针保护）选项，需要绕过。 关于 IO_FILE 利用：位于 libc 数据段的vtable是不可以进行写入的，因此通常需要构造假的vtable函数指针数组。 相关利用手法学习：
+house of kiwi（本质是修改_IO_file_jumps+0x60处的_IO_file_sync指针，达到劫持控制流的目的）
+house of emma（核心是借助_IO_cookie_jumps中“存在任意函数指针调用的成员函数”来劫持控制流）
+修改pointer_guard（在fs:[0x30]）的值是为了绕过_IO_vtable_check函数的检测（也可修改IO_accept_foreign_vtables）。
+pointer_guard指向的地址与伪造的IO_file地址应该是一样的，例题中都是chunk0_addr。
+例题中，触发house of kiwi后原本是要调用_IO_file_sync，但由于设置了vtable地址值的偏移，实际上会调用_IO_file_write（_IO_cookie_write）。
+例题中，执行函数_IO_cookie_write劫持控制流后，ROP路径为：magic_gadget -&gt; setcontext+61 -&gt; ORW gadgets。
+SROP（不过本题babyheap没有沙盒保护，可以直接劫持控制流到system函数，不必设计ROP ^^）
+house of apple1（核心是在堆上构造IO_FILE链后，利用IO_FILE_plus._wide_data指针的性质，在exit时可以实现额外的一次任意写）
+A处有伪造的IO_FILE：
+A + 0xd8（vtable指针）指向_IO_wstrn_jumps（为了能够调用到_IO_wstrn_overflow函数）
+A + 0xa0（_wide_data指针）设置为B（攻击者希望修改B处的数据）
+        </div>
+      </a>
       </div>
     </section>
 
@@ -512,7 +544,8 @@ ASP_handlers_list数组：记录每种ASP操作与handler函数的映射关系�
 
       
 
-      <p>（脱敏版）</p>
+      <p><em>本文内容仅用于个人存档和技术交流学习，禁止使用文中内容进行未授权或恶意的攻击行为。</em></p>
+<p>（脱敏版）</p>
 <h2 id="1-背景">1. 背景</h2>
 <p>先前因为一些项目，和实验室的同学一起分析了某款打印机的固件，发现了一些命令注入等类型的漏洞。调研后发现，市面上还有一类智能打印盒子（Print Box）产品。此类产品体积较小，通常与移动端APP配合使用，将其与打印机连接后，即可将普通打印机升级为云打印机：以云服务端作为消息中转站，盒子能够接收移动端发送的任务，再传输给本地打印机，从而实现远程云打印。</p>
 <p>确定了漏洞挖掘目标后，我们购买了两台某厂商的智能打印盒子设备。</p>
