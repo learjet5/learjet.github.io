@@ -307,15 +307,10 @@ video {
 }
 
 /* Modified by LHY */
+/* ToDo: max-width */
 .prose {
     color: var(--tw-prose-body);
-    max-width: 95ch
-}
-
-/* Added by LHY */
-.prose-blog {
-    color: var(--tw-prose-body);
-    max-width: 85ch
+    max-width: 90ch
 }
 
 .prose :where(p):not(:where([class~=not-prose], [class~=not-prose] *)) {

@@ -339,6 +339,45 @@ LAMDA框架中集成了mitmproxy组件，mitmproxy是一种常用的Man-in-the-M
 <div class="space-y-2.5">
       
       <a class="article block px-3 py-4  hover:bg-slate-200 dark:hover:bg-slate-700 "
+        href="/blogs/printbox%E6%BC%8F%E6%B4%9E%E6%8C%96%E6%8E%98/">
+        
+        
+        <h3 class="text-lg font-semibold mb-0.5">某厂商PrintBox漏洞挖掘</h3>
+        <div
+          class="text-sm  text-slate-500 dark:text-slate-400  line-clamp-2">
+          （脱敏版）
+1. 背景 先前因为一些项目，和实验室的同学一起分析了某款打印机的固件，发现了一些命令注入等类型的漏洞。调研后发现，市面上还有一类智能打印盒子（Print Box）产品。此类产品体积较小，通常与移动端APP配合使用，将其与打印机连接后，即可将普通打印机升级为云打印机：以云服务端作为消息中转站，盒子能够接收移动端发送的任务，再传输给本地打印机，从而实现远程云打印。
+确定了漏洞挖掘目标后，我们购买了两台某厂商的智能打印盒子设备。
+2. 硬件相关操作 搜索了官网等数据源，没有找到相关固件信息，于是只能尝试自己提取固件。
+用钳子拆开打印盒子的外壳，发现里面只有一块PCB电路板，如下图：
+根据组件的结构和标识，可以确定PCB板上主要有三个关键器件：
+R328-S2芯片：SoC，ARM Cortex-A7，应该是Linux系统的。芯片本身有Embedded Memory（512Mbit DDR2，即64MB），也可以通过 SPI 连接外部Flash存储芯片。（官方PDF说明）
+XR829芯片：网络模块，支持2.4GHz的WiFi和蓝牙。
+Flash芯片：8个引脚。
+初步推测设备的文件系统存储在Flash芯片中，里面可能也包含了我们要分析的服务程序。
+2.1 编程器提取Flash固件 查阅相关资料可知，用编程器提取Flash芯片数据一般有两种操作方法：① 用热风枪把芯片从PCB板上吹下来，② 用烧录夹连接Flash芯片引脚和编程器。这里我们选择破坏性更小的后者方法，购买了编程器和烧录夹，店家附赠了教程和操作软件。
+软硬件操作环境：
+EzpXPro的编程器，8引脚的烧录夹。 在笔记本电脑上，用WindowsXP_32bits的虚拟机作为编程器软件的运行环境。 注意：编程器连电脑不能用USB转接器，而要把编程器直接连到笔记本的USB口。 操作步骤：
+首先，裸的编程器与电脑连线后，Windows系统会提示有新硬件，我们指定EZP_XPro驱动所在目录进行安装。
+其次，用烧录夹连接EzpXPro编程器和PCB板上的Flash芯片，烧录夹的两端是不同的：
+一端是pin脚：将这头插到编程器上，按照下图的位置插到上8脚。 另一端是夹子：用这头夹住PCB板上Flash芯片的8个管脚，夹得方向也是有讲究的，需要尝试几次。 最后，重新启动编程器配套软件，可以看到识别出了Flash芯片，如下图。选择“读出芯片”然后保存二进制固件即可。 实际操作时，接线大致如下图：
+用BinWalk将提取到的固件解包，发现里面有个squashfs的文件系统，但分析后似乎并没有发现包含打印盒子主功能的二进制程序。
+进一步分析/etc/init.d/下的开机脚本，发现其中一个脚本中有以下代码：
+# ... #/etc/phx chmod a+x /mnt/UDISK/start.sh source /mnt/UDISK/start.sh &amp; 但实际上，提取到的固件中/mnt/UDISK/目录是空的。推测设备初始化时有目录挂载等操作，核心服务程序可能存储在SoC芯片或其他某处组件中，设备开机时相关数据会被挂载到/mnt/UDISK/，进而运行打印盒子的主功能。
+因此，需要从其他途径获取运行了打印盒子核心功能的二进制程序。
+2.2 连接电路板UART串口 观察后还发现，PCB板背面有三个金属点（如下图），联想到UART串口的三个引脚GND、TX、RX。
+借助多用电表，测量设备开机时上面各个金属端口的电压，发现其确实满足UART串口的特征：
+左边是GND（易于测出）。 中间是RX（电压开机时不跳变，相对于GND是3.3V）。 右边是TX（电压开机时会跳变，后面稳定了就不跳了）。 事实上，电压跳变是说明当前端口在传输信息。板子上的TX在开机时电压跳变说明开机过程有信息输出，开机过一会稳定后不再输出调试信息，其电压就和RX一样相对于GND是稳定的3.3V了。
+用焊锡将跳线的一端和UART端口简单地连好后，另一端连USB头并插入电脑（如下图），用MobaXTerm软件的Serial选项新建会话，几次尝试后，波特率选38400即可正常回显shell。
+在串口shell中操作，发现了Flash提取的固件中不存在的/mnt/UDISK/start.sh和/mnt/UDISK/XXXXXClient，后者即为我们的分析对象。至此，硬件操作基本结束。
+3. 移动端分析 此款智能打印盒子在移动端的配套应用既有微信小程序（Documents\WeChat Files\Applet\下的xxx.wxapkg）又有安卓APP（apk包），可以通过程序逆向或流量分析的方法理清 打印盒子、移动应用、云服务端 三者之间的交互关系。
+主要有以下发现：
+通过逆向移动端应用发现，在初始配对阶段，设备主要通过蓝牙协议与移动端做数据交互，关键信息包括WiFi密码、设备绑定码等。 通过抓包分析流量发现，移动端应用在进行一些打印、管理操作时，是通过访问云服务端的GraphQL接口完成的，推测云端会进一步处理、转发这些请求给对应设备。 更多细节出于厂商安全考虑暂不透露。
+4. 设备固件分析 针对前面通过串口shell获取的/mnt/UDISK/XXXXXClient进行逆向分析。该程序是一个静态编译的ARM32程序，由字符串知存在UPX加壳，直接解开后发现其为Go编写的程序，函数符号也没有去除。
+        </div>
+      </a>
+      
+      <a class="article block px-3 py-4  hover:bg-slate-200 dark:hover:bg-slate-700 "
         href="/blogs/datacon%E8%AE%B0%E5%BD%95/">
         
         
@@ -416,48 +455,41 @@ public final class VulnParcelable implements Parcelable { private String TAG = &
       </a>
       
       <a class="article block px-3 py-4  hover:bg-slate-200 dark:hover:bg-slate-700 "
-        href="/blogs/printbox%E6%BC%8F%E6%B4%9E%E6%8C%96%E6%8E%98/">
+        href="/blogs/netgear-r6400%E8%B7%AF%E7%94%B1%E5%99%A8%E6%BC%8F%E6%B4%9E%E6%8C%96%E6%8E%98/">
         
         
-        <h3 class="text-lg font-semibold mb-0.5">某厂商PrintBox漏洞挖掘</h3>
+        <h3 class="text-lg font-semibold mb-0.5">Netgear R6400路由器漏洞挖掘</h3>
         <div
           class="text-sm  text-slate-500 dark:text-slate-400  line-clamp-2">
-          （脱敏版）
-1. 背景 先前因为一些项目，和实验室的同学一起分析了某款打印机的固件，发现了一些命令注入等类型的漏洞。调研后发现，市面上还有一类智能打印盒子（Print Box）产品。此类产品体积较小，通常与移动端APP配合使用，将其与打印机连接后，即可将普通打印机升级为云打印机：以云服务端作为消息中转站，盒子能够接收移动端发送的任务，再传输给本地打印机，从而实现远程云打印。
-确定了漏洞挖掘目标后，我们购买了两台某厂商的智能打印盒子设备。
-2. 硬件相关操作 搜索了官网等数据源，没有找到相关固件信息，于是只能尝试自己提取固件。
-用钳子拆开打印盒子的外壳，发现里面只有一块PCB电路板，如下图：
-根据组件的结构和标识，可以确定PCB板上主要有三个关键器件：
-R328-S2芯片：SoC，ARM Cortex-A7，应该是Linux系统的。芯片本身有Embedded Memory（512Mbit DDR2，即64MB），也可以通过 SPI 连接外部Flash存储芯片。（官方PDF说明）
-XR829芯片：网络模块，支持2.4GHz的WiFi和蓝牙。
-Flash芯片：8个引脚。
-初步推测设备的文件系统存储在Flash芯片中，里面可能也包含了我们要分析的服务程序。
-2.1 编程器提取Flash固件 查阅相关资料可知，用编程器提取Flash芯片数据一般有两种操作方法：① 用热风枪把芯片从PCB板上吹下来，② 用烧录夹连接Flash芯片引脚和编程器。这里我们选择破坏性更小的后者方法，购买了编程器和烧录夹，店家附赠了教程和操作软件。
-软硬件操作环境：
-EzpXPro的编程器，8引脚的烧录夹。 在笔记本电脑上，用WindowsXP_32bits的虚拟机作为编程器软件的运行环境。 注意：编程器连电脑不能用USB转接器，而要把编程器直接连到笔记本的USB口。 操作步骤：
-首先，裸的编程器与电脑连线后，Windows系统会提示有新硬件，我们指定EZP_XPro驱动所在目录进行安装。
-其次，用烧录夹连接EzpXPro编程器和PCB板上的Flash芯片，烧录夹的两端是不同的：
-一端是pin脚：将这头插到编程器上，按照下图的位置插到上8脚。 另一端是夹子：用这头夹住PCB板上Flash芯片的8个管脚，夹得方向也是有讲究的，需要尝试几次。 最后，重新启动编程器配套软件，可以看到识别出了Flash芯片，如下图。选择“读出芯片”然后保存二进制固件即可。 实际操作时，接线大致如下图：
-用BinWalk将提取到的固件解包，发现里面有个squashfs的文件系统，但分析后似乎并没有发现包含打印盒子主功能的二进制程序。
-进一步分析/etc/init.d/下的开机脚本，发现其中一个脚本中有以下代码：
-# ... #/etc/phx chmod a+x /mnt/UDISK/start.sh source /mnt/UDISK/start.sh &amp; 但实际上，提取到的固件中/mnt/UDISK/目录是空的。推测设备初始化时有目录挂载等操作，核心服务程序可能存储在SoC芯片或其他某处组件中，设备开机时相关数据会被挂载到/mnt/UDISK/，进而运行打印盒子的主功能。
-因此，需要从其他途径获取运行了打印盒子核心功能的二进制程序。
-2.2 连接电路板UART串口 观察后还发现，PCB板背面有三个金属点（如下图），联想到UART串口的三个引脚GND、TX、RX。
-借助多用电表，测量设备开机时上面各个金属端口的电压，发现其确实满足UART串口的特征：
-左边是GND（易于测出）。 中间是RX（电压开机时不跳变，相对于GND是3.3V）。 右边是TX（电压开机时会跳变，后面稳定了就不跳了）。 事实上，电压跳变是说明当前端口在传输信息。板子上的TX在开机时电压跳变说明开机过程有信息输出，开机过一会稳定后不再输出调试信息，其电压就和RX一样相对于GND是稳定的3.3V了。
-用焊锡将跳线的一端和UART端口简单地连好后，另一端连USB头并插入电脑（如下图），用MobaXTerm软件的Serial选项新建会话，几次尝试后，波特率选38400即可正常回显shell。
-在串口shell中操作，发现了Flash提取的固件中不存在的/mnt/UDISK/start.sh和/mnt/UDISK/XXXXXClient，后者即为我们的分析对象。至此，硬件操作基本结束。
-3. 移动端分析 此款智能打印盒子在移动端的配套应用既有微信小程序（Documents\WeChat Files\Applet\下的xxx.wxapkg）又有安卓APP（apk包），可以通过程序逆向或流量分析的方法理清 打印盒子、移动应用、云服务端 三者之间的交互关系。
-主要有以下发现：
-通过逆向移动端应用发现，在初始配对阶段，设备主要通过蓝牙协议与移动端做数据交互，关键信息包括WiFi密码、设备绑定码等。 通过抓包分析流量发现，移动端应用在进行一些打印、管理操作时，是通过访问云服务端的GraphQL接口完成的，推测云端会进一步处理、转发这些请求给对应设备。 更多细节出于厂商安全考虑暂不透露。
-4. 设备固件分析 针对前面通过串口shell获取的/mnt/UDISK/XXXXXClient进行逆向分析。该程序是一个静态编译的ARM32程序，由字符串知存在UPX加壳，直接解开后发现其为Go编写的程序，函数符号也没有去除。
+          本文内容仅用于个人存档和技术交流学习，禁止使用文中内容进行未授权或恶意的攻击行为。
+1. 背景 研一暑假在家相对没那么忙，而刚过去的这学期又是漏洞挖掘课的助教，于是决定尝试挖一下家里面的Netgear路由器，锻炼一下动手能力。
+基本信息如下：
+设备型号：R6400 — AC1750 Smart WiFi Router 802.11ac Dual Band Gigabit / R6400 设备固件版本：1.0.1.78 固件下载链接 2. 攻击面分析 用BinWalk将固件解包后，发现存在/usr/sbin/httpd，此为web服务对应的二进制，以此为主要分析对象。
+首先，根据实验室先前论文工作SaTC[1]的经验，在后端httpd二进制中找到了用于获取前端输入数据的函数。如下图高亮（该函数原本没有符号，我将其重命名为了web_get_var），web_get_var的第二个参数为前后端共享关键字、第三个参数为目的buffer、第四个参数为buffer长度，这样根据该函数的交叉引用就可以初步确定httpd处理用户数据的起始点。
+其次，IoT设备中通常还会存在一些数据共享范式，常见的有NVRAM读写（如下图）、环境变量读写、配置文件读写等[2]，其一般会以一个关键字作为键值实现数据的存储和恢复。根据关键字字符串的交叉引用，我们可以将两段控制流衔接起来，提高分析的完整性。
+（我们还发现有些NVRAM配置是通过shell命令进行设置的，还有些NVRAM配置则是直接在libnvram.so中硬编码初始值的。）
+基于上述观察，可以跟踪外部输入数据在httpd中的数据流，检查其是否存在操作不当之处，同时关注常见sink函数调用点（如strcpy、system等），从而发现潜在的漏洞。此外，还在逆向分析的过程中发现了该httpd中两个重要的实现机制。
+2.1 CGI机制 嵌入式设备在实现web服务时可能会以CGI的方式实现：web server只负责对用户请求做简单地处理，然后将请求转发给 CGI 程序，CGI 程序处理请求后会将结果发给web server，最后web server再在包装数据后将其返回给用户。
+CGI（Common Gateway Interface，通用网关接口）是一种标准，它定义了Web服务器与外部程序之间进行交互的接口规范。通过 CGI，Web服务器可以调用外部程序处理客户端请求，并将处理结果返回给客户端。CGI 最初是用于创建动态内容的一种技术。
+Netgear R6400的CGI程序并不都以单独二进制程序的形式存在，而是在实现httpd时直接在其中嵌入了一些CGI处理函数。通过搜索&quot;.cgi&quot;关键字并定位相关字符串引用点，我们发现了一个记录了CGI名称和对应处理函数的数组（如下图），比如&quot;upgrade.cgi&quot;的对应处理函数就是sub_2CD24。
+以此类CGI处理函数为分析起点，可以更好地确保发现漏洞的可触发性。
+2.2 ASP cmd机制 在分析前端文件时，发现htm文件里会有一些形如&lt;%num%&gt;的代码，查阅资料后发现此类标签其实是ASP command。
+ASP（Active Server Pages）是一种由微软开发的服务器端脚本技术，用于创建动态的、交互性强的网页。ASP 页面包含嵌入在 HTML 中的服务器端脚本，这些脚本由服务器执行，并生成在浏览器中呈现的最终页面。&lt;% %&gt; 是用于包裹服务器端脚本的标记。
+在httpd二进制中，发现了以下两个结构（符号名称均是我自己命名的）：
+ASP_cmd_list数组：记录一条条完整的ASP command。
+ASP_handlers_list数组：记录每种ASP操作与handler函数的映射关系。
+对于前端htm文件里的&lt;%num%&gt;，后端httpd在解析时会以num作为index，从ASP_cmd_list中找到对应的完整ASP command字符串，再根据ASP_handlers_list的映射关系，交给对应操作的handler函数处理并传递参数。对于ASP_handlers_list数组中的处理函数，其实现的功能多是通过get类函数获取数据，然后再插入到前端htm文件里。
+由此可知，对于ASP_handlers_list里的handler函数中的sink点，其触发条件为：前端文件中有&lt;%num%&gt;，且num对应的ASP command需要以正确的ASP操作和满足约束的参数去触发sink点。
+了解这些有助于我们更好地确定路由器的攻击面，避免在难以触发的代码片段上花费时间。
+3. 漏洞描述 经过数天的逆向分析，辅助一些简单的IDA、Ghidra脚本，初步发现了一个Post-Auth的缓冲区溢出漏洞，可导致拒绝服务攻击。
+漏洞点位于 sub_83A90，该函数是 usb_device.
         </div>
       </a>
       </div>
     </section>
 
   <div class="overflow-y-auto h-screen w-full">
-    <article class="px-6 py-20 w-full mx-auto prose-blog lg:prose-lg h-fit dark:prose-invert prose-img:mx-auto">
+    <article class="px-6 py-20 w-full mx-auto prose lg:prose-lg h-fit dark:prose-invert prose-img:mx-auto">
 
       
       <h1 class="!mb-2">Android APP抓包方案调研</h1>
