@@ -306,7 +306,14 @@ video {
     --tw-backdrop-sepia:
 }
 
+/* Modified by LHY */
 .prose {
+    color: var(--tw-prose-body);
+    max-width: 95ch
+}
+
+/* Added by LHY */
+.prose-blog {
     color: var(--tw-prose-body);
     max-width: 85ch
 }
