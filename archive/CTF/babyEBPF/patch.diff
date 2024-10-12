@@ -1,0 +1,13 @@
+diff --git a/kernel/bpf/verifier.c b/kernel/bpf/verifier.c
+index 264b3dc714cc..49263e1295db 100644
+--- a/kernel/bpf/verifier.c
++++ b/kernel/bpf/verifier.c
+@@ -12900,7 +12900,7 @@ static int resolve_pseudo_ldimm64(struct bpf_verifier_env *env)
+ 			 * will be used by the valid program until it's unloaded
+ 			 * and all maps are released in free_used_maps()
+ 			 */
+-			bpf_map_inc(map);
++			//bpf_map_inc(map);
+ 
+ 			aux->map_index = env->used_map_cnt;
+ 			env->used_maps[env->used_map_cnt++] = map;
