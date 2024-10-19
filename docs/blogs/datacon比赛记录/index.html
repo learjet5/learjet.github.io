@@ -8,7 +8,7 @@
   <link rel="icon" href="/favicon.ico">
 
   <title>
-    Datacon比赛记录 - Jet&#39;s Homepage
+    Datacon Competition Record - Jet&#39;s Homepage
   </title>
 
   <meta name="description" content="1. 简介 2022年12月当时在打物联网安全赛道，用实验室先前论文SFuzz的代码改改，能较好地解决RTOS固件的相关题目，但第三题整数溢出漏洞检测在短时间内写出来的工具还是效果不佳。
@@ -22,7 +22,7 @@ import idautils import idc import ida_idp import ida_funcs import ida_nalt impor
   
   
 
-  <meta property="og:title" content="Datacon比赛记录" />
+  <meta property="og:title" content="Datacon Competition Record" />
 <meta property="og:description" content="1. 简介 2022年12月当时在打物联网安全赛道，用实验室先前论文SFuzz的代码改改，能较好地解决RTOS固件的相关题目，但第三题整数溢出漏洞检测在短时间内写出来的工具还是效果不佳。
 2023年11月又带学弟们打了漏洞分析赛道，前两题基本是苦力活，第三题挖0day因为没提前买设备and固件模拟不熟练导致写不出exp，略遗憾。
 后面如果再打Datacon的话就只想直接做第三题了（瘫
@@ -36,7 +36,7 @@ import idautils import idc import ida_idp import ida_funcs import ida_nalt impor
 
 
   <meta name="twitter:card" content="summary_large_image" />
-<meta name="twitter:image" content="https://learjet5.github.io/digital-garden-logo.png" /><meta name="twitter:title" content="Datacon比赛记录"/>
+<meta name="twitter:image" content="https://learjet5.github.io/digital-garden-logo.png" /><meta name="twitter:title" content="Datacon Competition Record"/>
 <meta name="twitter:description" content="1. 简介 2022年12月当时在打物联网安全赛道，用实验室先前论文SFuzz的代码改改，能较好地解决RTOS固件的相关题目，但第三题整数溢出漏洞检测在短时间内写出来的工具还是效果不佳。
 2023年11月又带学弟们打了漏洞分析赛道，前两题基本是苦力活，第三题挖0day因为没提前买设备and固件模拟不熟练导致写不出exp，略遗憾。
 后面如果再打Datacon的话就只想直接做第三题了（瘫
@@ -44,7 +44,7 @@ import idautils import idc import ida_idp import ida_funcs import ida_nalt impor
 import idautils import idc import ida_idp import ida_funcs import ida_nalt import time log_file = None # # Basic Tools # def printh(num): # h = hex print(hex(num)) def printh_list(nums): for num in nums: printh(num) def printf(func_ea): # f = funtion name = idc.get_func_name(func_ea) if name: print(&#34;%s(%s)&#34; % (name, hex(func_ea))) def get_addr_32(num)-&gt;str: s = hex(num)[2:] return &#39;0x&#39; &#43; s.rjust(8, &#39;0&#39;) def is_func_entry(ea): func = ida_funcs."/>
 
 
-  <meta itemprop="name" content="Datacon比赛记录">
+  <meta itemprop="name" content="Datacon Competition Record">
 <meta itemprop="description" content="1. 简介 2022年12月当时在打物联网安全赛道，用实验室先前论文SFuzz的代码改改，能较好地解决RTOS固件的相关题目，但第三题整数溢出漏洞检测在短时间内写出来的工具还是效果不佳。
 2023年11月又带学弟们打了漏洞分析赛道，前两题基本是苦力活，第三题挖0day因为没提前买设备and固件模拟不熟练导致写不出exp，略遗憾。
 后面如果再打Datacon的话就只想直接做第三题了（瘫
@@ -54,7 +54,7 @@ import idautils import idc import ida_idp import ida_funcs import ida_nalt impor
 <meta itemprop="wordCount" content="912"><meta itemprop="image" content="https://learjet5.github.io/digital-garden-logo.png" />
 <meta itemprop="keywords" content="" />
 
-  <meta itemprop="name" content="Datacon比赛记录">
+  <meta itemprop="name" content="Datacon Competition Record">
 <meta itemprop="description" content="1. 简介 2022年12月当时在打物联网安全赛道，用实验室先前论文SFuzz的代码改改，能较好地解决RTOS固件的相关题目，但第三题整数溢出漏洞检测在短时间内写出来的工具还是效果不佳。
 2023年11月又带学弟们打了漏洞分析赛道，前两题基本是苦力活，第三题挖0day因为没提前买设备and固件模拟不熟练导致写不出exp，略遗憾。
 后面如果再打Datacon的话就只想直接做第三题了（瘫
@@ -232,7 +232,7 @@ import idautils import idc import ida_idp import ida_funcs import ida_nalt impor
         href="/blogs/printbox%E6%BC%8F%E6%B4%9E%E6%8C%96%E6%8E%98/">
         
         
-        <h3 class="text-lg font-semibold mb-0.5">某厂商PrintBox漏洞挖掘</h3>
+        <h3 class="text-lg font-semibold mb-0.5">PrintBox Vulnerability Discovery</h3>
         <div
           class="text-sm  text-slate-500 dark:text-slate-400  line-clamp-2">
           本文内容仅用于个人存档和技术交流学习，禁止使用文中内容进行未授权或恶意的攻击行为。 （脱敏版）
@@ -270,7 +270,7 @@ EzpXPro的编程器，8引脚的烧录夹。 在笔记本电脑上，用WindowsX
         href="/blogs/datacon%E6%AF%94%E8%B5%9B%E8%AE%B0%E5%BD%95/">
         
         
-        <h3 class="text-lg font-semibold mb-0.5">Datacon比赛记录</h3>
+        <h3 class="text-lg font-semibold mb-0.5">Datacon Competition Record</h3>
         <div
           class="text-sm  text-slate-400  line-clamp-2">
           1. 简介 2022年12月当时在打物联网安全赛道，用实验室先前论文SFuzz的代码改改，能较好地解决RTOS固件的相关题目，但第三题整数溢出漏洞检测在短时间内写出来的工具还是效果不佳。
@@ -285,7 +285,7 @@ import idautils import idc import ida_idp import ida_funcs import ida_nalt impor
         href="/blogs/android-app-%E6%8A%93%E5%8C%85%E6%96%B9%E6%A1%88%E8%B0%83%E7%A0%94/">
         
         
-        <h3 class="text-lg font-semibold mb-0.5">Android APP抓包方案调研</h3>
+        <h3 class="text-lg font-semibold mb-0.5">Android APP Packet Capturing Solutions</h3>
         <div
           class="text-sm  text-slate-500 dark:text-slate-400  line-clamp-2">
           本文内容仅用于个人存档和技术交流学习，禁止使用文中内容进行未授权或恶意的攻击行为。
@@ -322,7 +322,7 @@ LAMDA框架中集成了mitmproxy组件，mitmproxy是一种常用的Man-in-the-M
         href="/blogs/vulnparcel/">
         
         
-        <h3 class="text-lg font-semibold mb-0.5">GEEKCON2023 AVSS挑战赛 VulnParcel题解</h3>
+        <h3 class="text-lg font-semibold mb-0.5">GEEKCON2023 AVSS Competition-VulnParcel Writeup</h3>
         <div
           class="text-sm  text-slate-500 dark:text-slate-400  line-clamp-2">
           本文内容仅用于个人存档和技术交流学习，禁止使用文中内容进行未授权或恶意的攻击行为。
@@ -347,7 +347,7 @@ public final class VulnParcelable implements Parcelable { private String TAG = &
         href="/blogs/netgear-r6400%E8%B7%AF%E7%94%B1%E5%99%A8%E6%BC%8F%E6%B4%9E%E6%8C%96%E6%8E%98/">
         
         
-        <h3 class="text-lg font-semibold mb-0.5">Netgear R6400路由器漏洞挖掘</h3>
+        <h3 class="text-lg font-semibold mb-0.5">Netgear R6400 Router Vulnerability Discovery</h3>
         <div
           class="text-sm  text-slate-500 dark:text-slate-400  line-clamp-2">
           本文内容仅用于个人存档和技术交流学习，禁止使用文中内容进行未授权或恶意的攻击行为。
@@ -379,7 +379,7 @@ ASP_handlers_list数组：记录每种ASP操作与handler函数的映射关系�
         href="/blogs/sjtuctf2023-babyheap/">
         
         
-        <h3 class="text-lg font-semibold mb-0.5">SJTUCTF2023 babyheap复盘</h3>
+        <h3 class="text-lg font-semibold mb-0.5">SJTUCTF2023 babyheap Writeup</h3>
         <div
           class="text-sm  text-slate-500 dark:text-slate-400  line-clamp-2">
           整理、记录下校赛遇到的一道堆利用题目。这道题我比赛时拿了一血，最后也只有2解。
@@ -413,7 +413,7 @@ A + 0xa0（_wide_data指针）设置为B（攻击者希望修改B处的数据）
     <article class="px-6 py-20 w-full mx-auto prose lg:prose-lg h-fit dark:prose-invert prose-img:mx-auto">
 
       
-      <h1 class="!mb-2">Datacon比赛记录</h1>
+      <h1 class="!mb-2">Datacon Competition Record</h1>
 
 	  
       <p class="text-sm text-slate-500 !mb-8"> Created November 20, 2023
