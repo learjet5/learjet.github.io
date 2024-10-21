@@ -130,7 +130,7 @@
     
     <li>
       <a class="px-2 py-1.5 rounded-md text-sm block text-slate-800 dark:text-slate-50  hover:bg-slate-200 dark:hover:bg-slate-700 "
-        href="https://twitter.com" target="_blank" rel="noopener noreferrer">
+        href="https://x.com" target="_blank" rel="noopener noreferrer">
         <span class="sr-only">Twitter</span>
         
         <span><svg class="h-4 w-4" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"
@@ -192,7 +192,7 @@
   }
 </script>
 <div class="space-y-2.5">
-      <a class="article block px-3 py-4 hover:bg-slate-200 dark:hover:bg-slate-700" href="/blogs/printbox%E6%BC%8F%E6%B4%9E%E6%8C%96%E6%8E%98/">
+      <a class="article block px-3 py-4 hover:bg-slate-200 dark:hover:bg-slate-700" href="/blogs/printbox-vuln-discovery/">
 
         
         
@@ -228,7 +228,7 @@ EzpXPro的编程器，8引脚的烧录夹。 在笔记本电脑上，用WindowsX
 通过逆向移动端应用发现，在初始配对阶段，设备主要通过蓝牙协议与移动端做数据交互，关键信息包括WiFi密码、设备绑定码等。 通过抓包分析流量发现，移动端应用在进行一些打印、管理操作时，是通过访问云服务端的GraphQL接口完成的，推测云端会进一步处理、转发这些请求给对应设备。 更多细节出于厂商安全考虑暂不透露。
         </div>
       </a>
-      <a class="article block px-3 py-4 hover:bg-slate-200 dark:hover:bg-slate-700" href="/blogs/datacon%E6%AF%94%E8%B5%9B%E8%AE%B0%E5%BD%95/">
+      <a class="article block px-3 py-4 hover:bg-slate-200 dark:hover:bg-slate-700" href="/blogs/datacon-competition-record/">
 
         
         
@@ -241,7 +241,7 @@ EzpXPro的编程器，8引脚的烧录夹。 在笔记本电脑上，用WindowsX
 import idautils import idc import ida_idp import ida_funcs import ida_nalt import time log_file = None # # Basic Tools # def printh(num): # h = hex print(hex(num)) def printh_list(nums): for num in nums: printh(num) def printf(func_ea): # f = funtion name = idc.get_func_name(func_ea) if name: print(&#34;%s(%s)&#34; % (name, hex(func_ea))) def get_addr_32(num)-&gt;str: s = hex(num)[2:] return &#39;0x&#39; + s.rjust(8, &#39;0&#39;) def is_func_entry(ea): func = ida_funcs.
         </div>
       </a>
-      <a class="article block px-3 py-4 hover:bg-slate-200 dark:hover:bg-slate-700" href="/blogs/android-app-%E6%8A%93%E5%8C%85%E6%96%B9%E6%A1%88%E8%B0%83%E7%A0%94/">
+      <a class="article block px-3 py-4 hover:bg-slate-200 dark:hover:bg-slate-700" href="/blogs/android-app-packet-capture/">
 
         
         
@@ -276,7 +276,7 @@ LAMDA框架中集成了mitmproxy组件，mitmproxy是一种常用的Man-in-the-M
 [3] https://github.com/LSPosed/LSPosed
         </div>
       </a>
-      <a class="article block px-3 py-4 hover:bg-slate-200 dark:hover:bg-slate-700" href="/blogs/vulnparcel/">
+      <a class="article block px-3 py-4 hover:bg-slate-200 dark:hover:bg-slate-700" href="/blogs/geekcon-avss-vulnparcel/">
 
         
         
@@ -299,7 +299,7 @@ Bundle本身也是实现了Parcelable接口的，从序列化数据的角度来�
 public final class VulnParcelable implements Parcelable { private String TAG = &#34;VulnParcelable&#34;; private int opt; private int o1; private int o2; private byte[] mPayload; public VulnParcelable() { } // @UnsupportedAppUsage private VulnParcelable(Parcel in) { readFromParcel(in); } // 反序列化 // opt=0: 只读一个o1 // opt=1: 先读o2，然后读一个size，o2&gt;0才会再读一个buf[size] public void readFromParcel(@NonNull Parcel in) { Log.
         </div>
       </a>
-      <a class="article block px-3 py-4 hover:bg-slate-200 dark:hover:bg-slate-700" href="/blogs/netgear-r6400%E8%B7%AF%E7%94%B1%E5%99%A8%E6%BC%8F%E6%B4%9E%E6%8C%96%E6%8E%98/">
+      <a class="article block px-3 py-4 hover:bg-slate-200 dark:hover:bg-slate-700" href="/blogs/netgear-r6400-router-vuln-discovery/">
 
         
         
