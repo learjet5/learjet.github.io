@@ -8,145 +8,100 @@
   <link rel="icon" href="/favicon.ico">
 
   <title>
-    Netgear R6400 Router Vulnerability Discovery - Jet&#39;s Homepage
+    IoT Practice Session - Jet&#39;s Homepage
   </title>
 
   <meta name="description" content="本文内容仅用于个人存档和技术交流学习，禁止使用文中内容进行未授权或恶意的攻击行为。
-1. 背景 研一暑假在家相对没那么忙，而刚过去的这学期又是漏洞挖掘课的助教，于是决定尝试挖一下家里面的Netgear路由器，锻炼一下动手能力。
-基本信息如下：
-设备型号：R6400 — AC1750 Smart WiFi Router 802.11ac Dual Band Gigabit / R6400 设备固件版本：1.0.1.78 固件下载链接 2. 攻击面分析 用BinWalk将固件解包后，发现存在/usr/sbin/httpd，此为web服务对应的二进制，以此为主要分析对象。
-首先，根据实验室先前论文工作SaTC[1]的经验，在后端httpd二进制中找到了用于获取前端输入数据的函数。如下图高亮（该函数原本没有符号，我将其重命名为了web_get_var），web_get_var的第二个参数为前后端共享关键字、第三个参数为目的buffer、第四个参数为buffer长度，这样根据该函数的交叉引用就可以初步确定httpd处理用户数据的起始点。
-其次，IoT设备中通常还会存在一些数据共享范式，常见的有NVRAM读写（如下图）、环境变量读写、配置文件读写等[2]，其一般会以一个关键字作为键值实现数据的存储和恢复。根据关键字字符串的交叉引用，我们可以将两段控制流衔接起来，提高分析的完整性。
-（我们还发现有些NVRAM配置是通过shell命令进行设置的，还有些NVRAM配置则是直接在libnvram.so中硬编码初始值的。）
-基于上述观察，可以跟踪外部输入数据在httpd中的数据流，检查其是否存在操作不当之处，同时关注常见sink函数调用点（如strcpy、system等），从而发现潜在的漏洞。此外，还在逆向分析的过程中发现了该httpd中两个重要的实现机制。
-2.1 CGI机制 嵌入式设备在实现web服务时可能会以CGI的方式实现：web server只负责对用户请求做简单地处理，然后将请求转发给 CGI 程序，CGI 程序处理请求后会将结果发给web server，最后web server再在包装数据后将其返回给用户。
-CGI（Common Gateway Interface，通用网关接口）是一种标准，它定义了Web服务器与外部程序之间进行交互的接口规范。通过 CGI，Web服务器可以调用外部程序处理客户端请求，并将处理结果返回给客户端。CGI 最初是用于创建动态内容的一种技术。
-Netgear R6400的CGI程序并不都以单独二进制程序的形式存在，而是在实现httpd时直接在其中嵌入了一些CGI处理函数。通过搜索&quot;.cgi&quot;关键字并定位相关字符串引用点，我们发现了一个记录了CGI名称和对应处理函数的数组（如下图），比如&quot;upgrade.cgi&quot;的对应处理函数就是sub_2CD24。
-以此类CGI处理函数为分析起点，可以更好地确保发现漏洞的可触发性。
-2.2 ASP cmd机制 在分析前端文件时，发现htm文件里会有一些形如&lt;%num%&gt;的代码，查阅资料后发现此类标签其实是ASP command。
-ASP（Active Server Pages）是一种由微软开发的服务器端脚本技术，用于创建动态的、交互性强的网页。ASP 页面包含嵌入在 HTML 中的服务器端脚本，这些脚本由服务器执行，并生成在浏览器中呈现的最终页面。&lt;% %&gt; 是用于包裹服务器端脚本的标记。
-在httpd二进制中，发现了以下两个结构（符号名称均是我自己命名的）：
-ASP_cmd_list数组：记录一条条完整的ASP command。
-ASP_handlers_list数组：记录每种ASP操作与handler函数的映射关系。
-对于前端htm文件里的&lt;%num%&gt;，后端httpd在解析时会以num作为index，从ASP_cmd_list中找到对应的完整ASP command字符串，再根据ASP_handlers_list的映射关系，交给对应操作的handler函数处理并传递参数。对于ASP_handlers_list数组中的处理函数，其实现的功能多是通过get类函数获取数据，然后再插入到前端htm文件里。
-由此可知，对于ASP_handlers_list里的handler函数中的sink点，其触发条件为：前端文件中有&lt;%num%&gt;，且num对应的ASP command需要以正确的ASP操作和满足约束的参数去触发sink点。
-了解这些有助于我们更好地确定路由器的攻击面，避免在难以触发的代码片段上花费时间。
-3. 漏洞描述 经过数天的逆向分析，辅助一些简单的IDA、Ghidra脚本，初步发现了一个Post-Auth的缓冲区溢出漏洞，可导致拒绝服务攻击。
-漏洞点位于 sub_83A90，该函数是 usb_device." /><meta name="generator" content="Hugo 0.121.2">
+本文用于记录上海交大 NIS8017 Course，固件模拟习题课的相关材料。
+附件下载 下载地址：https://drive.google.com/file/d/1Co4NSlLv1aCTQHIYwUsyTc5SX2wsVHrq/view?usp=drive_link
+系统级固件模拟（D-Link DIR823G） 系统级模拟的优势：
+更加稳定，利用整个内核和文件系统 支持一些系统级别的配置 使用FirmAE模拟DIR823G，并对goahead服务进行调试。
+课前准备 请大家按照Github提供的指示，在Linux环境下安装并配置好FirmAE框架。
+感兴趣的同学可以进一步阅读相关论文：
+Towards automated dynamic analysis for linux-based embedded firmware FirmAE: Towards large-scale emulation of IoT firmware for dynamic analysis 这部分附件的文件结构如下。 （如果在使用FirmAE/download.sh下载FirmAE所需依赖时遇到网络问题，可下载binaries，并将其中的二进制文件拷贝到FirmAE对应的文件夹中）
+.├── DIR823GA1_FW102B03.bin└── exp_release.py 模拟过程 将附件中的固件复制到FirmAE/firmwares/后，执行以下命令：
+cd FirmAE/ sudo ./run.sh -r dlink ./firmwares/DIR823GA1_FW102B03.bin # run mode # or sudo ./run.sh -d dlink ./firmwares/DIR823GA1_FW102B03.bin # user-level debug mode 以debug模式为例，模拟成功后会提供如下界面：
+访问http://192.168.0.1/也可以看到路由器的管理界面。
+注意，第一次模拟需要的时间会比较长，约10~20min，因为FirmAE需要对固件的网络配置进行推断。第一次模拟成功后，FirmAE会把相关配置记录到数据库中，下一次模拟就会比较快了。
+调试方法 使用上述debug模式模拟固件后，有五种操作可供选择，选择2. connext to shell连接到shell，可以看到/firmadyne下已经准备好了一些工具。" /><meta name="generator" content="Hugo 0.121.2">
 
   <link rel="stylesheet" href="https://learjet5.github.io/css/main.css" />
 
   
   
 
-  <meta property="og:title" content="Netgear R6400 Router Vulnerability Discovery" />
+  <meta property="og:title" content="IoT Practice Session" />
 <meta property="og:description" content="本文内容仅用于个人存档和技术交流学习，禁止使用文中内容进行未授权或恶意的攻击行为。
-1. 背景 研一暑假在家相对没那么忙，而刚过去的这学期又是漏洞挖掘课的助教，于是决定尝试挖一下家里面的Netgear路由器，锻炼一下动手能力。
-基本信息如下：
-设备型号：R6400 — AC1750 Smart WiFi Router 802.11ac Dual Band Gigabit / R6400 设备固件版本：1.0.1.78 固件下载链接 2. 攻击面分析 用BinWalk将固件解包后，发现存在/usr/sbin/httpd，此为web服务对应的二进制，以此为主要分析对象。
-首先，根据实验室先前论文工作SaTC[1]的经验，在后端httpd二进制中找到了用于获取前端输入数据的函数。如下图高亮（该函数原本没有符号，我将其重命名为了web_get_var），web_get_var的第二个参数为前后端共享关键字、第三个参数为目的buffer、第四个参数为buffer长度，这样根据该函数的交叉引用就可以初步确定httpd处理用户数据的起始点。
-其次，IoT设备中通常还会存在一些数据共享范式，常见的有NVRAM读写（如下图）、环境变量读写、配置文件读写等[2]，其一般会以一个关键字作为键值实现数据的存储和恢复。根据关键字字符串的交叉引用，我们可以将两段控制流衔接起来，提高分析的完整性。
-（我们还发现有些NVRAM配置是通过shell命令进行设置的，还有些NVRAM配置则是直接在libnvram.so中硬编码初始值的。）
-基于上述观察，可以跟踪外部输入数据在httpd中的数据流，检查其是否存在操作不当之处，同时关注常见sink函数调用点（如strcpy、system等），从而发现潜在的漏洞。此外，还在逆向分析的过程中发现了该httpd中两个重要的实现机制。
-2.1 CGI机制 嵌入式设备在实现web服务时可能会以CGI的方式实现：web server只负责对用户请求做简单地处理，然后将请求转发给 CGI 程序，CGI 程序处理请求后会将结果发给web server，最后web server再在包装数据后将其返回给用户。
-CGI（Common Gateway Interface，通用网关接口）是一种标准，它定义了Web服务器与外部程序之间进行交互的接口规范。通过 CGI，Web服务器可以调用外部程序处理客户端请求，并将处理结果返回给客户端。CGI 最初是用于创建动态内容的一种技术。
-Netgear R6400的CGI程序并不都以单独二进制程序的形式存在，而是在实现httpd时直接在其中嵌入了一些CGI处理函数。通过搜索&quot;.cgi&quot;关键字并定位相关字符串引用点，我们发现了一个记录了CGI名称和对应处理函数的数组（如下图），比如&quot;upgrade.cgi&quot;的对应处理函数就是sub_2CD24。
-以此类CGI处理函数为分析起点，可以更好地确保发现漏洞的可触发性。
-2.2 ASP cmd机制 在分析前端文件时，发现htm文件里会有一些形如&lt;%num%&gt;的代码，查阅资料后发现此类标签其实是ASP command。
-ASP（Active Server Pages）是一种由微软开发的服务器端脚本技术，用于创建动态的、交互性强的网页。ASP 页面包含嵌入在 HTML 中的服务器端脚本，这些脚本由服务器执行，并生成在浏览器中呈现的最终页面。&lt;% %&gt; 是用于包裹服务器端脚本的标记。
-在httpd二进制中，发现了以下两个结构（符号名称均是我自己命名的）：
-ASP_cmd_list数组：记录一条条完整的ASP command。
-ASP_handlers_list数组：记录每种ASP操作与handler函数的映射关系。
-对于前端htm文件里的&lt;%num%&gt;，后端httpd在解析时会以num作为index，从ASP_cmd_list中找到对应的完整ASP command字符串，再根据ASP_handlers_list的映射关系，交给对应操作的handler函数处理并传递参数。对于ASP_handlers_list数组中的处理函数，其实现的功能多是通过get类函数获取数据，然后再插入到前端htm文件里。
-由此可知，对于ASP_handlers_list里的handler函数中的sink点，其触发条件为：前端文件中有&lt;%num%&gt;，且num对应的ASP command需要以正确的ASP操作和满足约束的参数去触发sink点。
-了解这些有助于我们更好地确定路由器的攻击面，避免在难以触发的代码片段上花费时间。
-3. 漏洞描述 经过数天的逆向分析，辅助一些简单的IDA、Ghidra脚本，初步发现了一个Post-Auth的缓冲区溢出漏洞，可导致拒绝服务攻击。
-漏洞点位于 sub_83A90，该函数是 usb_device." />
+本文用于记录上海交大 NIS8017 Course，固件模拟习题课的相关材料。
+附件下载 下载地址：https://drive.google.com/file/d/1Co4NSlLv1aCTQHIYwUsyTc5SX2wsVHrq/view?usp=drive_link
+系统级固件模拟（D-Link DIR823G） 系统级模拟的优势：
+更加稳定，利用整个内核和文件系统 支持一些系统级别的配置 使用FirmAE模拟DIR823G，并对goahead服务进行调试。
+课前准备 请大家按照Github提供的指示，在Linux环境下安装并配置好FirmAE框架。
+感兴趣的同学可以进一步阅读相关论文：
+Towards automated dynamic analysis for linux-based embedded firmware FirmAE: Towards large-scale emulation of IoT firmware for dynamic analysis 这部分附件的文件结构如下。 （如果在使用FirmAE/download.sh下载FirmAE所需依赖时遇到网络问题，可下载binaries，并将其中的二进制文件拷贝到FirmAE对应的文件夹中）
+.├── DIR823GA1_FW102B03.bin└── exp_release.py 模拟过程 将附件中的固件复制到FirmAE/firmwares/后，执行以下命令：
+cd FirmAE/ sudo ./run.sh -r dlink ./firmwares/DIR823GA1_FW102B03.bin # run mode # or sudo ./run.sh -d dlink ./firmwares/DIR823GA1_FW102B03.bin # user-level debug mode 以debug模式为例，模拟成功后会提供如下界面：
+访问http://192.168.0.1/也可以看到路由器的管理界面。
+注意，第一次模拟需要的时间会比较长，约10~20min，因为FirmAE需要对固件的网络配置进行推断。第一次模拟成功后，FirmAE会把相关配置记录到数据库中，下一次模拟就会比较快了。
+调试方法 使用上述debug模式模拟固件后，有五种操作可供选择，选择2. connext to shell连接到shell，可以看到/firmadyne下已经准备好了一些工具。" />
 <meta property="og:type" content="article" />
-<meta property="og:url" content="https://learjet5.github.io/blogs/netgear-r6400-router-vuln-discovery/" /><meta property="og:image" content="https://learjet5.github.io/digital-garden-logo.png" /><meta property="article:section" content="blogs" />
-<meta property="article:published_time" content="2023-08-10T00:00:00+00:00" />
-<meta property="article:modified_time" content="2023-08-10T00:00:00+00:00" />
+<meta property="og:url" content="https://learjet5.github.io/blogs/iot-practice-session/" /><meta property="og:image" content="https://learjet5.github.io/digital-garden-logo.png" /><meta property="article:section" content="blogs" />
+<meta property="article:published_time" content="2023-05-19T00:00:00+00:00" />
+<meta property="article:modified_time" content="2023-05-19T00:00:00+00:00" />
 
 
 
   <meta name="twitter:card" content="summary_large_image" />
-<meta name="twitter:image" content="https://learjet5.github.io/digital-garden-logo.png" /><meta name="twitter:title" content="Netgear R6400 Router Vulnerability Discovery"/>
+<meta name="twitter:image" content="https://learjet5.github.io/digital-garden-logo.png" /><meta name="twitter:title" content="IoT Practice Session"/>
 <meta name="twitter:description" content="本文内容仅用于个人存档和技术交流学习，禁止使用文中内容进行未授权或恶意的攻击行为。
-1. 背景 研一暑假在家相对没那么忙，而刚过去的这学期又是漏洞挖掘课的助教，于是决定尝试挖一下家里面的Netgear路由器，锻炼一下动手能力。
-基本信息如下：
-设备型号：R6400 — AC1750 Smart WiFi Router 802.11ac Dual Band Gigabit / R6400 设备固件版本：1.0.1.78 固件下载链接 2. 攻击面分析 用BinWalk将固件解包后，发现存在/usr/sbin/httpd，此为web服务对应的二进制，以此为主要分析对象。
-首先，根据实验室先前论文工作SaTC[1]的经验，在后端httpd二进制中找到了用于获取前端输入数据的函数。如下图高亮（该函数原本没有符号，我将其重命名为了web_get_var），web_get_var的第二个参数为前后端共享关键字、第三个参数为目的buffer、第四个参数为buffer长度，这样根据该函数的交叉引用就可以初步确定httpd处理用户数据的起始点。
-其次，IoT设备中通常还会存在一些数据共享范式，常见的有NVRAM读写（如下图）、环境变量读写、配置文件读写等[2]，其一般会以一个关键字作为键值实现数据的存储和恢复。根据关键字字符串的交叉引用，我们可以将两段控制流衔接起来，提高分析的完整性。
-（我们还发现有些NVRAM配置是通过shell命令进行设置的，还有些NVRAM配置则是直接在libnvram.so中硬编码初始值的。）
-基于上述观察，可以跟踪外部输入数据在httpd中的数据流，检查其是否存在操作不当之处，同时关注常见sink函数调用点（如strcpy、system等），从而发现潜在的漏洞。此外，还在逆向分析的过程中发现了该httpd中两个重要的实现机制。
-2.1 CGI机制 嵌入式设备在实现web服务时可能会以CGI的方式实现：web server只负责对用户请求做简单地处理，然后将请求转发给 CGI 程序，CGI 程序处理请求后会将结果发给web server，最后web server再在包装数据后将其返回给用户。
-CGI（Common Gateway Interface，通用网关接口）是一种标准，它定义了Web服务器与外部程序之间进行交互的接口规范。通过 CGI，Web服务器可以调用外部程序处理客户端请求，并将处理结果返回给客户端。CGI 最初是用于创建动态内容的一种技术。
-Netgear R6400的CGI程序并不都以单独二进制程序的形式存在，而是在实现httpd时直接在其中嵌入了一些CGI处理函数。通过搜索&quot;.cgi&quot;关键字并定位相关字符串引用点，我们发现了一个记录了CGI名称和对应处理函数的数组（如下图），比如&quot;upgrade.cgi&quot;的对应处理函数就是sub_2CD24。
-以此类CGI处理函数为分析起点，可以更好地确保发现漏洞的可触发性。
-2.2 ASP cmd机制 在分析前端文件时，发现htm文件里会有一些形如&lt;%num%&gt;的代码，查阅资料后发现此类标签其实是ASP command。
-ASP（Active Server Pages）是一种由微软开发的服务器端脚本技术，用于创建动态的、交互性强的网页。ASP 页面包含嵌入在 HTML 中的服务器端脚本，这些脚本由服务器执行，并生成在浏览器中呈现的最终页面。&lt;% %&gt; 是用于包裹服务器端脚本的标记。
-在httpd二进制中，发现了以下两个结构（符号名称均是我自己命名的）：
-ASP_cmd_list数组：记录一条条完整的ASP command。
-ASP_handlers_list数组：记录每种ASP操作与handler函数的映射关系。
-对于前端htm文件里的&lt;%num%&gt;，后端httpd在解析时会以num作为index，从ASP_cmd_list中找到对应的完整ASP command字符串，再根据ASP_handlers_list的映射关系，交给对应操作的handler函数处理并传递参数。对于ASP_handlers_list数组中的处理函数，其实现的功能多是通过get类函数获取数据，然后再插入到前端htm文件里。
-由此可知，对于ASP_handlers_list里的handler函数中的sink点，其触发条件为：前端文件中有&lt;%num%&gt;，且num对应的ASP command需要以正确的ASP操作和满足约束的参数去触发sink点。
-了解这些有助于我们更好地确定路由器的攻击面，避免在难以触发的代码片段上花费时间。
-3. 漏洞描述 经过数天的逆向分析，辅助一些简单的IDA、Ghidra脚本，初步发现了一个Post-Auth的缓冲区溢出漏洞，可导致拒绝服务攻击。
-漏洞点位于 sub_83A90，该函数是 usb_device."/>
+本文用于记录上海交大 NIS8017 Course，固件模拟习题课的相关材料。
+附件下载 下载地址：https://drive.google.com/file/d/1Co4NSlLv1aCTQHIYwUsyTc5SX2wsVHrq/view?usp=drive_link
+系统级固件模拟（D-Link DIR823G） 系统级模拟的优势：
+更加稳定，利用整个内核和文件系统 支持一些系统级别的配置 使用FirmAE模拟DIR823G，并对goahead服务进行调试。
+课前准备 请大家按照Github提供的指示，在Linux环境下安装并配置好FirmAE框架。
+感兴趣的同学可以进一步阅读相关论文：
+Towards automated dynamic analysis for linux-based embedded firmware FirmAE: Towards large-scale emulation of IoT firmware for dynamic analysis 这部分附件的文件结构如下。 （如果在使用FirmAE/download.sh下载FirmAE所需依赖时遇到网络问题，可下载binaries，并将其中的二进制文件拷贝到FirmAE对应的文件夹中）
+.├── DIR823GA1_FW102B03.bin└── exp_release.py 模拟过程 将附件中的固件复制到FirmAE/firmwares/后，执行以下命令：
+cd FirmAE/ sudo ./run.sh -r dlink ./firmwares/DIR823GA1_FW102B03.bin # run mode # or sudo ./run.sh -d dlink ./firmwares/DIR823GA1_FW102B03.bin # user-level debug mode 以debug模式为例，模拟成功后会提供如下界面：
+访问http://192.168.0.1/也可以看到路由器的管理界面。
+注意，第一次模拟需要的时间会比较长，约10~20min，因为FirmAE需要对固件的网络配置进行推断。第一次模拟成功后，FirmAE会把相关配置记录到数据库中，下一次模拟就会比较快了。
+调试方法 使用上述debug模式模拟固件后，有五种操作可供选择，选择2. connext to shell连接到shell，可以看到/firmadyne下已经准备好了一些工具。"/>
 
 
-  <meta itemprop="name" content="Netgear R6400 Router Vulnerability Discovery">
+  <meta itemprop="name" content="IoT Practice Session">
 <meta itemprop="description" content="本文内容仅用于个人存档和技术交流学习，禁止使用文中内容进行未授权或恶意的攻击行为。
-1. 背景 研一暑假在家相对没那么忙，而刚过去的这学期又是漏洞挖掘课的助教，于是决定尝试挖一下家里面的Netgear路由器，锻炼一下动手能力。
-基本信息如下：
-设备型号：R6400 — AC1750 Smart WiFi Router 802.11ac Dual Band Gigabit / R6400 设备固件版本：1.0.1.78 固件下载链接 2. 攻击面分析 用BinWalk将固件解包后，发现存在/usr/sbin/httpd，此为web服务对应的二进制，以此为主要分析对象。
-首先，根据实验室先前论文工作SaTC[1]的经验，在后端httpd二进制中找到了用于获取前端输入数据的函数。如下图高亮（该函数原本没有符号，我将其重命名为了web_get_var），web_get_var的第二个参数为前后端共享关键字、第三个参数为目的buffer、第四个参数为buffer长度，这样根据该函数的交叉引用就可以初步确定httpd处理用户数据的起始点。
-其次，IoT设备中通常还会存在一些数据共享范式，常见的有NVRAM读写（如下图）、环境变量读写、配置文件读写等[2]，其一般会以一个关键字作为键值实现数据的存储和恢复。根据关键字字符串的交叉引用，我们可以将两段控制流衔接起来，提高分析的完整性。
-（我们还发现有些NVRAM配置是通过shell命令进行设置的，还有些NVRAM配置则是直接在libnvram.so中硬编码初始值的。）
-基于上述观察，可以跟踪外部输入数据在httpd中的数据流，检查其是否存在操作不当之处，同时关注常见sink函数调用点（如strcpy、system等），从而发现潜在的漏洞。此外，还在逆向分析的过程中发现了该httpd中两个重要的实现机制。
-2.1 CGI机制 嵌入式设备在实现web服务时可能会以CGI的方式实现：web server只负责对用户请求做简单地处理，然后将请求转发给 CGI 程序，CGI 程序处理请求后会将结果发给web server，最后web server再在包装数据后将其返回给用户。
-CGI（Common Gateway Interface，通用网关接口）是一种标准，它定义了Web服务器与外部程序之间进行交互的接口规范。通过 CGI，Web服务器可以调用外部程序处理客户端请求，并将处理结果返回给客户端。CGI 最初是用于创建动态内容的一种技术。
-Netgear R6400的CGI程序并不都以单独二进制程序的形式存在，而是在实现httpd时直接在其中嵌入了一些CGI处理函数。通过搜索&quot;.cgi&quot;关键字并定位相关字符串引用点，我们发现了一个记录了CGI名称和对应处理函数的数组（如下图），比如&quot;upgrade.cgi&quot;的对应处理函数就是sub_2CD24。
-以此类CGI处理函数为分析起点，可以更好地确保发现漏洞的可触发性。
-2.2 ASP cmd机制 在分析前端文件时，发现htm文件里会有一些形如&lt;%num%&gt;的代码，查阅资料后发现此类标签其实是ASP command。
-ASP（Active Server Pages）是一种由微软开发的服务器端脚本技术，用于创建动态的、交互性强的网页。ASP 页面包含嵌入在 HTML 中的服务器端脚本，这些脚本由服务器执行，并生成在浏览器中呈现的最终页面。&lt;% %&gt; 是用于包裹服务器端脚本的标记。
-在httpd二进制中，发现了以下两个结构（符号名称均是我自己命名的）：
-ASP_cmd_list数组：记录一条条完整的ASP command。
-ASP_handlers_list数组：记录每种ASP操作与handler函数的映射关系。
-对于前端htm文件里的&lt;%num%&gt;，后端httpd在解析时会以num作为index，从ASP_cmd_list中找到对应的完整ASP command字符串，再根据ASP_handlers_list的映射关系，交给对应操作的handler函数处理并传递参数。对于ASP_handlers_list数组中的处理函数，其实现的功能多是通过get类函数获取数据，然后再插入到前端htm文件里。
-由此可知，对于ASP_handlers_list里的handler函数中的sink点，其触发条件为：前端文件中有&lt;%num%&gt;，且num对应的ASP command需要以正确的ASP操作和满足约束的参数去触发sink点。
-了解这些有助于我们更好地确定路由器的攻击面，避免在难以触发的代码片段上花费时间。
-3. 漏洞描述 经过数天的逆向分析，辅助一些简单的IDA、Ghidra脚本，初步发现了一个Post-Auth的缓冲区溢出漏洞，可导致拒绝服务攻击。
-漏洞点位于 sub_83A90，该函数是 usb_device."><meta itemprop="datePublished" content="2023-08-10T00:00:00+00:00" />
-<meta itemprop="dateModified" content="2023-08-10T00:00:00+00:00" />
-<meta itemprop="wordCount" content="138"><meta itemprop="image" content="https://learjet5.github.io/digital-garden-logo.png" />
+本文用于记录上海交大 NIS8017 Course，固件模拟习题课的相关材料。
+附件下载 下载地址：https://drive.google.com/file/d/1Co4NSlLv1aCTQHIYwUsyTc5SX2wsVHrq/view?usp=drive_link
+系统级固件模拟（D-Link DIR823G） 系统级模拟的优势：
+更加稳定，利用整个内核和文件系统 支持一些系统级别的配置 使用FirmAE模拟DIR823G，并对goahead服务进行调试。
+课前准备 请大家按照Github提供的指示，在Linux环境下安装并配置好FirmAE框架。
+感兴趣的同学可以进一步阅读相关论文：
+Towards automated dynamic analysis for linux-based embedded firmware FirmAE: Towards large-scale emulation of IoT firmware for dynamic analysis 这部分附件的文件结构如下。 （如果在使用FirmAE/download.sh下载FirmAE所需依赖时遇到网络问题，可下载binaries，并将其中的二进制文件拷贝到FirmAE对应的文件夹中）
+.├── DIR823GA1_FW102B03.bin└── exp_release.py 模拟过程 将附件中的固件复制到FirmAE/firmwares/后，执行以下命令：
+cd FirmAE/ sudo ./run.sh -r dlink ./firmwares/DIR823GA1_FW102B03.bin # run mode # or sudo ./run.sh -d dlink ./firmwares/DIR823GA1_FW102B03.bin # user-level debug mode 以debug模式为例，模拟成功后会提供如下界面：
+访问http://192.168.0.1/也可以看到路由器的管理界面。
+注意，第一次模拟需要的时间会比较长，约10~20min，因为FirmAE需要对固件的网络配置进行推断。第一次模拟成功后，FirmAE会把相关配置记录到数据库中，下一次模拟就会比较快了。
+调试方法 使用上述debug模式模拟固件后，有五种操作可供选择，选择2. connext to shell连接到shell，可以看到/firmadyne下已经准备好了一些工具。"><meta itemprop="datePublished" content="2023-05-19T00:00:00+00:00" />
+<meta itemprop="dateModified" content="2023-05-19T00:00:00+00:00" />
+<meta itemprop="wordCount" content="264"><meta itemprop="image" content="https://learjet5.github.io/digital-garden-logo.png" />
 <meta itemprop="keywords" content="" />
 
-  <meta itemprop="name" content="Netgear R6400 Router Vulnerability Discovery">
+  <meta itemprop="name" content="IoT Practice Session">
 <meta itemprop="description" content="本文内容仅用于个人存档和技术交流学习，禁止使用文中内容进行未授权或恶意的攻击行为。
-1. 背景 研一暑假在家相对没那么忙，而刚过去的这学期又是漏洞挖掘课的助教，于是决定尝试挖一下家里面的Netgear路由器，锻炼一下动手能力。
-基本信息如下：
-设备型号：R6400 — AC1750 Smart WiFi Router 802.11ac Dual Band Gigabit / R6400 设备固件版本：1.0.1.78 固件下载链接 2. 攻击面分析 用BinWalk将固件解包后，发现存在/usr/sbin/httpd，此为web服务对应的二进制，以此为主要分析对象。
-首先，根据实验室先前论文工作SaTC[1]的经验，在后端httpd二进制中找到了用于获取前端输入数据的函数。如下图高亮（该函数原本没有符号，我将其重命名为了web_get_var），web_get_var的第二个参数为前后端共享关键字、第三个参数为目的buffer、第四个参数为buffer长度，这样根据该函数的交叉引用就可以初步确定httpd处理用户数据的起始点。
-其次，IoT设备中通常还会存在一些数据共享范式，常见的有NVRAM读写（如下图）、环境变量读写、配置文件读写等[2]，其一般会以一个关键字作为键值实现数据的存储和恢复。根据关键字字符串的交叉引用，我们可以将两段控制流衔接起来，提高分析的完整性。
-（我们还发现有些NVRAM配置是通过shell命令进行设置的，还有些NVRAM配置则是直接在libnvram.so中硬编码初始值的。）
-基于上述观察，可以跟踪外部输入数据在httpd中的数据流，检查其是否存在操作不当之处，同时关注常见sink函数调用点（如strcpy、system等），从而发现潜在的漏洞。此外，还在逆向分析的过程中发现了该httpd中两个重要的实现机制。
-2.1 CGI机制 嵌入式设备在实现web服务时可能会以CGI的方式实现：web server只负责对用户请求做简单地处理，然后将请求转发给 CGI 程序，CGI 程序处理请求后会将结果发给web server，最后web server再在包装数据后将其返回给用户。
-CGI（Common Gateway Interface，通用网关接口）是一种标准，它定义了Web服务器与外部程序之间进行交互的接口规范。通过 CGI，Web服务器可以调用外部程序处理客户端请求，并将处理结果返回给客户端。CGI 最初是用于创建动态内容的一种技术。
-Netgear R6400的CGI程序并不都以单独二进制程序的形式存在，而是在实现httpd时直接在其中嵌入了一些CGI处理函数。通过搜索&quot;.cgi&quot;关键字并定位相关字符串引用点，我们发现了一个记录了CGI名称和对应处理函数的数组（如下图），比如&quot;upgrade.cgi&quot;的对应处理函数就是sub_2CD24。
-以此类CGI处理函数为分析起点，可以更好地确保发现漏洞的可触发性。
-2.2 ASP cmd机制 在分析前端文件时，发现htm文件里会有一些形如&lt;%num%&gt;的代码，查阅资料后发现此类标签其实是ASP command。
-ASP（Active Server Pages）是一种由微软开发的服务器端脚本技术，用于创建动态的、交互性强的网页。ASP 页面包含嵌入在 HTML 中的服务器端脚本，这些脚本由服务器执行，并生成在浏览器中呈现的最终页面。&lt;% %&gt; 是用于包裹服务器端脚本的标记。
-在httpd二进制中，发现了以下两个结构（符号名称均是我自己命名的）：
-ASP_cmd_list数组：记录一条条完整的ASP command。
-ASP_handlers_list数组：记录每种ASP操作与handler函数的映射关系。
-对于前端htm文件里的&lt;%num%&gt;，后端httpd在解析时会以num作为index，从ASP_cmd_list中找到对应的完整ASP command字符串，再根据ASP_handlers_list的映射关系，交给对应操作的handler函数处理并传递参数。对于ASP_handlers_list数组中的处理函数，其实现的功能多是通过get类函数获取数据，然后再插入到前端htm文件里。
-由此可知，对于ASP_handlers_list里的handler函数中的sink点，其触发条件为：前端文件中有&lt;%num%&gt;，且num对应的ASP command需要以正确的ASP操作和满足约束的参数去触发sink点。
-了解这些有助于我们更好地确定路由器的攻击面，避免在难以触发的代码片段上花费时间。
-3. 漏洞描述 经过数天的逆向分析，辅助一些简单的IDA、Ghidra脚本，初步发现了一个Post-Auth的缓冲区溢出漏洞，可导致拒绝服务攻击。
-漏洞点位于 sub_83A90，该函数是 usb_device."><meta itemprop="datePublished" content="2023-08-10T00:00:00+00:00" />
-<meta itemprop="dateModified" content="2023-08-10T00:00:00+00:00" />
-<meta itemprop="wordCount" content="138"><meta itemprop="image" content="https://learjet5.github.io/digital-garden-logo.png" />
+本文用于记录上海交大 NIS8017 Course，固件模拟习题课的相关材料。
+附件下载 下载地址：https://drive.google.com/file/d/1Co4NSlLv1aCTQHIYwUsyTc5SX2wsVHrq/view?usp=drive_link
+系统级固件模拟（D-Link DIR823G） 系统级模拟的优势：
+更加稳定，利用整个内核和文件系统 支持一些系统级别的配置 使用FirmAE模拟DIR823G，并对goahead服务进行调试。
+课前准备 请大家按照Github提供的指示，在Linux环境下安装并配置好FirmAE框架。
+感兴趣的同学可以进一步阅读相关论文：
+Towards automated dynamic analysis for linux-based embedded firmware FirmAE: Towards large-scale emulation of IoT firmware for dynamic analysis 这部分附件的文件结构如下。 （如果在使用FirmAE/download.sh下载FirmAE所需依赖时遇到网络问题，可下载binaries，并将其中的二进制文件拷贝到FirmAE对应的文件夹中）
+.├── DIR823GA1_FW102B03.bin└── exp_release.py 模拟过程 将附件中的固件复制到FirmAE/firmwares/后，执行以下命令：
+cd FirmAE/ sudo ./run.sh -r dlink ./firmwares/DIR823GA1_FW102B03.bin # run mode # or sudo ./run.sh -d dlink ./firmwares/DIR823GA1_FW102B03.bin # user-level debug mode 以debug模式为例，模拟成功后会提供如下界面：
+访问http://192.168.0.1/也可以看到路由器的管理界面。
+注意，第一次模拟需要的时间会比较长，约10~20min，因为FirmAE需要对固件的网络配置进行推断。第一次模拟成功后，FirmAE会把相关配置记录到数据库中，下一次模拟就会比较快了。
+调试方法 使用上述debug模式模拟固件后，有五种操作可供选择，选择2. connext to shell连接到shell，可以看到/firmadyne下已经准备好了一些工具。"><meta itemprop="datePublished" content="2023-05-19T00:00:00+00:00" />
+<meta itemprop="dateModified" content="2023-05-19T00:00:00+00:00" />
+<meta itemprop="wordCount" content="264"><meta itemprop="image" content="https://learjet5.github.io/digital-garden-logo.png" />
 <meta itemprop="keywords" content="" />
 </head><body class="flex relative h-full min-h-screen"><aside
   class="will-change-transform transform transition-transform -translate-x-full absolute top-0 left-0 md:relative md:translate-x-0 w-3/4 md:basis-60 h-full min-h-screen p-3 bg-slate-50 dark:bg-slate-800 border-r border-slate-200 dark:border-slate-700 flex flex-col gap-2.5 z-20 sidebar flex-shrink-0">
@@ -428,13 +383,13 @@ public final class VulnParcelable implements Parcelable { private String TAG = &
         </div>
       </a>
       
-      <a class="article block px-3 py-4  bg-slate-900 dark:bg-slate-700 text-slate-50 "
+      <a class="article block px-3 py-4  hover:bg-slate-200 dark:hover:bg-slate-700 "
         href="/blogs/netgear-r6400-router-vuln-discovery/">
         
         
         <h3 class="text-lg font-semibold mb-0.5">Netgear R6400 Router Vulnerability Discovery</h3>
         <div
-          class="text-sm  text-slate-400  line-clamp-2">
+          class="text-sm  text-slate-500 dark:text-slate-400  line-clamp-2">
           本文内容仅用于个人存档和技术交流学习，禁止使用文中内容进行未授权或恶意的攻击行为。
 1. 背景 研一暑假在家相对没那么忙，而刚过去的这学期又是漏洞挖掘课的助教，于是决定尝试挖一下家里面的Netgear路由器，锻炼一下动手能力。
 基本信息如下：
@@ -460,13 +415,13 @@ ASP_handlers_list数组：记录每种ASP操作与handler函数的映射关系�
         </div>
       </a>
       
-      <a class="article block px-3 py-4  hover:bg-slate-200 dark:hover:bg-slate-700 "
+      <a class="article block px-3 py-4  bg-slate-900 dark:bg-slate-700 text-slate-50 "
         href="/blogs/iot-practice-session/">
         
         
         <h3 class="text-lg font-semibold mb-0.5">IoT Practice Session</h3>
         <div
-          class="text-sm  text-slate-500 dark:text-slate-400  line-clamp-2">
+          class="text-sm  text-slate-400  line-clamp-2">
           本文内容仅用于个人存档和技术交流学习，禁止使用文中内容进行未授权或恶意的攻击行为。
 本文用于记录上海交大 NIS8017 Course，固件模拟习题课的相关材料。
 附件下载 下载地址：https://drive.google.com/file/d/1Co4NSlLv1aCTQHIYwUsyTc5SX2wsVHrq/view?usp=drive_link
@@ -521,10 +476,10 @@ A + 0xa0（_wide_data指针）设置为B（攻击者希望修改B处的数据）
     <article class="px-6 py-20 w-full mx-auto prose lg:prose-lg h-fit dark:prose-invert prose-img:mx-auto">
 
       
-      <h1 class="!mb-2">Netgear R6400 Router Vulnerability Discovery</h1>
+      <h1 class="!mb-2">IoT Practice Session</h1>
 
 	  
-      <p class="text-sm text-slate-500 !mb-8"> Created August 10, 2023
+      <p class="text-sm text-slate-500 !mb-8"> Created May 19, 2023
 		
 	  </p>
       
@@ -532,64 +487,159 @@ A + 0xa0（_wide_data指针）设置为B（攻击者希望修改B处的数据）
       
 
       <p><em>本文内容仅用于个人存档和技术交流学习，禁止使用文中内容进行未授权或恶意的攻击行为。</em></p>
-<h2 id="1-背景">1. 背景</h2>
-<p>研一暑假在家相对没那么忙，而刚过去的这学期又是漏洞挖掘课的助教，于是决定尝试挖一下家里面的Netgear路由器，锻炼一下动手能力。</p>
-<p>基本信息如下：</p>
+<p><strong>本文用于记录上海交大 NIS8017 Course，固件模拟习题课的相关材料。</strong></p>
+<h2 id="附件下载">附件下载</h2>
+<p>下载地址：https://drive.google.com/file/d/1Co4NSlLv1aCTQHIYwUsyTc5SX2wsVHrq/view?usp=drive_link</p>
+<h2 id="系统级固件模拟d-link-dir823g">系统级固件模拟（D-Link DIR823G）</h2>
+<p>系统级模拟的优势：</p>
+<ol>
+<li>更加稳定，利用整个内核和文件系统</li>
+<li>支持一些系统级别的配置</li>
+</ol>
+<p>使用FirmAE模拟DIR823G，并对goahead服务进行调试。</p>
+<h3 id="课前准备">课前准备</h3>
+<p>请大家按照Github提供的指示，在Linux环境下安装并配置好<a href="https://github.com/pr0v3rbs/FirmAE"  target="_blank" rel="noopener" >FirmAE</a>框架。</p>
+<p>感兴趣的同学可以进一步阅读相关论文：</p>
 <ul>
-<li>设备型号：R6400 — AC1750 Smart WiFi Router 802.11ac Dual Band Gigabit / R6400</li>
-<li>设备固件版本：1.0.1.78</li>
-<li><a href="https://www.downloads.netgear.com/files/GDC/R6400/R6400-V1.0.1.78_1.0.50.zip"  target="_blank" rel="noopener" >固件下载链接</a></li>
+<li>Towards automated dynamic analysis for linux-based embedded firmware</li>
+<li>FirmAE: Towards large-scale emulation of IoT firmware for dynamic analysis</li>
 </ul>
-<h2 id="2-攻击面分析">2. 攻击面分析</h2>
-<p>用BinWalk将固件解包后，发现存在<code>/usr/sbin/httpd</code>，此为web服务对应的二进制，以此为主要分析对象。</p>
-<p>首先，根据实验室先前论文工作SaTC[1]的经验，在后端httpd二进制中找到了用于获取前端输入数据的函数。如下图高亮（该函数原本没有符号，我将其重命名为了<code>web_get_var</code>），<code>web_get_var</code>的第二个参数为前后端共享关键字、第三个参数为目的buffer、第四个参数为buffer长度，这样根据该函数的交叉引用就可以初步确定httpd处理用户数据的起始点。</p>
-<img src="/images/image-20240227154602399.png" alt="image-20240227154602399" style="zoom:70%;" />
-<p>其次，IoT设备中通常还会存在一些数据共享范式，常见的有NVRAM读写（如下图）、环境变量读写、配置文件读写等[2]，其一般会以一个关键字作为键值实现数据的存储和恢复。根据关键字字符串的交叉引用，我们可以将两段控制流衔接起来，提高分析的完整性。</p>
-<p>（我们还发现有些NVRAM配置是通过shell命令进行设置的，还有些NVRAM配置则是直接在<code>libnvram.so</code>中硬编码初始值的。）</p>
-<p><img src="/images/image-20240227160141048.png" alt="image-20240227160141048"></p>
-<p>基于上述观察，可以跟踪外部输入数据在httpd中的数据流，检查其是否存在操作不当之处，同时关注常见sink函数调用点（如<code>strcpy</code>、<code>system</code>等），从而发现潜在的漏洞。此外，还在逆向分析的过程中发现了该httpd中两个重要的实现机制。</p>
-<h3 id="21-cgi机制">2.1 CGI机制</h3>
-<p>嵌入式设备在实现web服务时可能会以CGI的方式实现：web server只负责对用户请求做简单地处理，然后将请求转发给 CGI 程序，CGI 程序处理请求后会将结果发给web server，最后web server再在包装数据后将其返回给用户。</p>
-<blockquote>
-<p>CGI（Common Gateway Interface，通用网关接口）是一种标准，它定义了Web服务器与外部程序之间进行交互的接口规范。通过 CGI，Web服务器可以调用外部程序处理客户端请求，并将处理结果返回给客户端。CGI 最初是用于创建动态内容的一种技术。</p>
-</blockquote>
-<p>Netgear R6400的CGI程序并不都以单独二进制程序的形式存在，而是在实现httpd时直接在其中嵌入了一些CGI处理函数。通过搜索&quot;.cgi&quot;关键字并定位相关字符串引用点，我们发现了一个记录了CGI名称和对应处理函数的数组（如下图），比如&quot;upgrade.cgi&quot;的对应处理函数就是<code>sub_2CD24</code>。</p>
-<p>以此类CGI处理函数为分析起点，可以更好地确保发现漏洞的可触发性。</p>
-<img src="/images/image-20240227163546810.png" alt="image-20240227163546810" style="zoom:60%;" />
-<h3 id="22-asp-cmd机制">2.2 ASP cmd机制</h3>
-<p>在分析前端文件时，发现htm文件里会有一些形如<code>&lt;%num%&gt;</code>的代码，查阅资料后发现此类标签其实是ASP command。</p>
-<blockquote>
-<p>ASP（Active Server Pages）是一种由微软开发的服务器端脚本技术，用于创建动态的、交互性强的网页。ASP 页面包含嵌入在 HTML 中的服务器端脚本，这些脚本由服务器执行，并生成在浏览器中呈现的最终页面。<strong>&lt;% %&gt;</strong> 是用于包裹服务器端脚本的标记。</p>
-</blockquote>
-<p>在httpd二进制中，发现了以下两个结构（符号名称均是我自己命名的）：</p>
+<p>这部分附件的文件结构如下。
+（如果在使用<code>FirmAE/download.sh</code>下载FirmAE所需依赖时遇到网络问题，可下载<a href="https://jbox.sjtu.edu.cn/l/W1BeFI"  target="_blank" rel="noopener" >binaries</a>，并将其中的二进制文件拷贝到FirmAE对应的文件夹中）</p>
+<pre tabindex="0"><code>.
+├── DIR823GA1_FW102B03.bin
+└── exp_release.py
+</code></pre><h3 id="模拟过程">模拟过程</h3>
+<p>将附件中的固件复制到<code>FirmAE/firmwares/</code>后，执行以下命令：</p>
+<div class="highlight"><pre tabindex="0" style="color:#f8f8f2;background-color:#282a36;-moz-tab-size:4;-o-tab-size:4;tab-size:4;"><code class="language-shell" data-lang="shell"><span style="display:flex;"><span><span style="color:#8be9fd;font-style:italic">cd</span> FirmAE/
+</span></span><span style="display:flex;"><span>sudo ./run.sh -r dlink ./firmwares/DIR823GA1_FW102B03.bin <span style="color:#6272a4"># run mode</span>
+</span></span><span style="display:flex;"><span><span style="color:#6272a4"># or</span>
+</span></span><span style="display:flex;"><span>sudo ./run.sh -d dlink ./firmwares/DIR823GA1_FW102B03.bin <span style="color:#6272a4"># user-level debug mode</span>
+</span></span></code></pre></div><p>以debug模式为例，模拟成功后会提供如下界面：</p>
+<!-- ![](https://notes.sjtu.edu.cn/uploads/upload_7531fb36558042a21410d177b728bc55.png) -->
+<img src="/images/upload_7531fb36558042a21410d177b728bc55.png" style="zoom:100%;" />
+<p>访问<a href="http://192.168.0.1/"  target="_blank" rel="noopener" >http://192.168.0.1/</a>也可以看到路由器的管理界面。</p>
+<p>注意，第一次模拟需要的时间会比较长，约10~20min，因为FirmAE需要对固件的网络配置进行推断。第一次模拟成功后，FirmAE会把相关配置记录到数据库中，下一次模拟就会比较快了。</p>
+<h3 id="调试方法">调试方法</h3>
+<p>使用上述debug模式模拟固件后，有五种操作可供选择，选择<code>2. connext to shell</code>连接到shell，可以看到<code>/firmadyne</code>下已经准备好了一些工具。</p>
+<p>以web服务程序goahead为例，在模拟固件的shell中执行以下命令：</p>
+<div class="highlight"><pre tabindex="0" style="color:#f8f8f2;background-color:#282a36;-moz-tab-size:4;-o-tab-size:4;tab-size:4;"><code class="language-sh" data-lang="sh"><span style="display:flex;"><span><span style="color:#6272a4"># 在模拟的路由器shell里，启动gdbserver</span>
+</span></span><span style="display:flex;"><span>ps | grep goahead <span style="color:#6272a4"># 获取goahead的pid</span>
+</span></span><span style="display:flex;"><span><span style="color:#8be9fd;font-style:italic">cd</span> /firmadyne
+</span></span><span style="display:flex;"><span>./gdbserver --attach :1234 <span style="color:#ff79c6">[</span>pid<span style="color:#ff79c6">]</span>
+</span></span></code></pre></div><p>在本地另起一个terminal，执行以下命令，用gdb-multiarch远程连接到模拟环境下的goahead进程，进行调试：</p>
+<div class="highlight"><pre tabindex="0" style="color:#f8f8f2;background-color:#282a36;-moz-tab-size:4;-o-tab-size:4;tab-size:4;"><code class="language-sh" data-lang="sh"><span style="display:flex;"><span>sudo apt install gdb-multiarch
+</span></span><span style="display:flex;"><span>gdb-multiarch
+</span></span><span style="display:flex;"><span><span style="color:#6272a4">#下面的命令是在gdb中输入：</span>
+</span></span><span style="display:flex;"><span><span style="color:#8be9fd;font-style:italic">set</span> arch mips:isa32r2 
+</span></span><span style="display:flex;"><span><span style="color:#8be9fd;font-style:italic">set</span> follow-fork-mode child 
+</span></span><span style="display:flex;"><span>target remote 192.168.0.1:1234 
+</span></span><span style="display:flex;"><span><span style="color:#6272a4"># 举例：在某system调用处下断点</span>
+</span></span><span style="display:flex;"><span><span style="color:#8be9fd;font-style:italic">break</span> *0x423A14 
+</span></span><span style="display:flex;"><span><span style="color:#ff79c6">continue</span> 
+</span></span><span style="display:flex;"><span><span style="color:#6272a4"># 发送的数据触发断点后，即可进一步查看上下文</span>
+</span></span></code></pre></div><p>以下exp脚本可以触发0x423A14处的命令注入漏洞点：</p>
+<div class="highlight"><pre tabindex="0" style="color:#f8f8f2;background-color:#282a36;-moz-tab-size:4;-o-tab-size:4;tab-size:4;"><code class="language-python" data-lang="python"><span style="display:flex;"><span><span style="color:#ff79c6">import</span> requests
+</span></span><span style="display:flex;"><span>
+</span></span><span style="display:flex;"><span>IP<span style="color:#ff79c6">=</span><span style="color:#f1fa8c">&#39;192.168.0.1&#39;</span>
+</span></span><span style="display:flex;"><span>payload <span style="color:#ff79c6">=</span> <span style="color:#f1fa8c">&#34;something&#34;</span>
+</span></span><span style="display:flex;"><span>length <span style="color:#ff79c6">=</span> <span style="color:#8be9fd;font-style:italic">len</span>(payload)
+</span></span><span style="display:flex;"><span>
+</span></span><span style="display:flex;"><span>headers <span style="color:#ff79c6">=</span> requests<span style="color:#ff79c6">.</span>utils<span style="color:#ff79c6">.</span>default_headers()
+</span></span><span style="display:flex;"><span>headers[<span style="color:#f1fa8c">&#34;Content-Length&#34;</span>]<span style="color:#ff79c6">=</span><span style="color:#8be9fd;font-style:italic">str</span>(length)
+</span></span><span style="display:flex;"><span>headers[<span style="color:#f1fa8c">&#34;User-Agent&#34;</span>] <span style="color:#ff79c6">=</span> <span style="color:#f1fa8c">&#34;Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/56.0.2924.76 Safari/537.36&#34;</span>
+</span></span><span style="display:flex;"><span>headers[<span style="color:#f1fa8c">&#34;SOAPAction&#34;</span>] <span style="color:#ff79c6">=</span> <span style="color:#f1fa8c">&#39;&#34;http://purenetworks.com/HNAP1/GetClientInfo&#34;&#39;</span>
+</span></span><span style="display:flex;"><span>headers[<span style="color:#f1fa8c">&#34;Content-Type&#34;</span>] <span style="color:#ff79c6">=</span> <span style="color:#f1fa8c">&#34;text/xml; charset=UTF-8&#34;</span>
+</span></span><span style="display:flex;"><span>headers[<span style="color:#f1fa8c">&#34;Accept&#34;</span>]<span style="color:#ff79c6">=</span><span style="color:#f1fa8c">&#34;*/*&#34;</span>
+</span></span><span style="display:flex;"><span>headers[<span style="color:#f1fa8c">&#34;Accept-Encoding&#34;</span>]<span style="color:#ff79c6">=</span><span style="color:#f1fa8c">&#34;gzip, deflate&#34;</span>
+</span></span><span style="display:flex;"><span>headers[<span style="color:#f1fa8c">&#34;Accept-Language&#34;</span>]<span style="color:#ff79c6">=</span><span style="color:#f1fa8c">&#34;zh-CN,zh;q=0.9,en;q=0.8&#34;</span>
+</span></span><span style="display:flex;"><span>
+</span></span><span style="display:flex;"><span>r <span style="color:#ff79c6">=</span> requests<span style="color:#ff79c6">.</span>post(<span style="color:#f1fa8c">&#39;http://&#39;</span><span style="color:#ff79c6">+</span>IP<span style="color:#ff79c6">+</span><span style="color:#f1fa8c">&#39;/HNAP1/&#39;</span>, headers<span style="color:#ff79c6">=</span>headers, data<span style="color:#ff79c6">=</span>payload)
+</span></span><span style="display:flex;"><span><span style="color:#8be9fd;font-style:italic">print</span>(r<span style="color:#ff79c6">.</span>text)
+</span></span></code></pre></div><p><strong>作业要求：</strong></p>
+<p>分析goahead二进制并完善上述脚本，实现通过命令注入获得路由器shell的效果。（主要希望同学们能上手操作一下gdb调试）</p>
+<p>（更多系统级模拟的例子可以参考：<a href="https://github.com/firmianay/IoT-vulhub"  target="_blank" rel="noopener" >IoT-vulhub</a>）</p>
+<h2 id="用户级固件模拟netgear-xr300-">用户级固件模拟（Netgear XR300 ）</h2>
+<p>以Netgear为例：构建Qiling+binary的环境，模拟的目标是upnpd。</p>
+<h3 id="课前准备-1">课前准备</h3>
+<p>请大家提前安装好<a href="https://github.com/qilingframework/qiling"  target="_blank" rel="noopener" >Qiling框架</a>，推荐版本如下：</p>
+<div class="highlight"><pre tabindex="0" style="color:#f8f8f2;background-color:#282a36;-moz-tab-size:4;-o-tab-size:4;tab-size:4;"><code class="language-shell" data-lang="shell"><span style="display:flex;"><span><span style="color:#6272a4"># python3.8及以上</span>
+</span></span><span style="display:flex;"><span>pip3 install <span style="color:#8be9fd;font-style:italic">qiling</span><span style="color:#ff79c6">==</span>1.4.5
+</span></span><span style="display:flex;"><span>pip3 install pwntools
+</span></span><span style="display:flex;"><span>pip3 install ipdb
+</span></span></code></pre></div><p>这部分附件的文件结构如下：</p>
+<pre tabindex="0"><code>.
+├── exp_release.py
+├── README.md
+├── sim_xr300.py
+├── upnpd
+└── XR300-V1.0.3.50_10.3.36.chk(固件)
+</code></pre><p>可以先阅读附件中的Readme，尝试使用Binwalk对固件进行解包。</p>
+<h3 id="漏洞介绍">漏洞介绍</h3>
+<p>一般的攻击面：大部分目标仍以通过LAN/WAN实现远程代码执行
+• httpd / net-cgi –web服务
+• upnpd – 即插即拔服务
+• ftpd / telnetd / …</p>
+<p>我们这次选择upnpd，它的特点：
+• 无用户界面</p>
+<p>如何进行漏洞挖掘：
+• 搜索协议规范相关字符串-&gt; 定位请求处理流程
+• 搜索关键函数-&gt; 定位数据传入点</p>
+<p>选择recvfrom函数（接收数据的函数）：</p>
+<!-- ![](https://notes.sjtu.edu.cn/uploads/upload_da5db80b91c0a871dacd9e35f25b5e85.png) -->
+<img src="/images/upload_da5db80b91c0a871dacd9e35f25b5e85.png" style="zoom:100%;" />
+<p>第一个参数是fd，是一个全局变量，查看交叉引用可以看到其定义过程，绑定在了1900端口</p>
+<!-- ![](https://notes.sjtu.edu.cn/uploads/upload_b31849a1de9850af882e3966b976f07b.png) -->
+<img src="/images/upload_b31849a1de9850af882e3966b976f07b.png" style="zoom:100%;" />
+<p>回到数据的处理流程：程序对数据包内容要求带有：</p>
 <ul>
-<li>
-<p><code>ASP_cmd_list</code>数组：记录一条条<strong>完整的</strong>ASP command。</p>
-<img src="/images/image-20240227170454262.png" alt="image-20240227170454262" style="zoom:60%;" />
-</li>
-<li>
-<p><code>ASP_handlers_list</code>数组：记录每种ASP操作与handler函数的映射关系。</p>
-<img src="/images/image-20240227170534971.png" alt="image-20240227170534971" style="zoom:60%;" />
-</li>
+<li>M-SEARCH</li>
+<li>*</li>
+<li>HTTP/1.1</li>
+<li>MAN:</li>
+<li>&ldquo;ssdp:discover&rdquo;</li>
 </ul>
-<p>对于前端htm文件里的<code>&lt;%num%&gt;</code>，后端httpd在解析时会以<code>num</code>作为index，从<code>ASP_cmd_list</code>中找到对应的完整ASP command字符串，再根据<code>ASP_handlers_list</code>的映射关系，交给对应操作的handler函数处理并传递参数。对于<code>ASP_handlers_list</code>数组中的处理函数，其实现的功能多是通过get类函数获取数据，然后再插入到前端htm文件里。</p>
-<p>由此可知，对于<code>ASP_handlers_list</code>里的handler函数中的sink点，其触发条件为：前端文件中有<code>&lt;%num%&gt;</code>，且<code>num</code>对应的ASP command需要以正确的ASP操作和满足约束的参数去触发sink点。</p>
-<p>了解这些有助于我们更好地确定路由器的攻击面，避免在难以触发的代码片段上花费时间。</p>
-<h2 id="3-漏洞描述">3. 漏洞描述</h2>
-<p>经过数天的逆向分析，辅助一些简单的IDA、Ghidra脚本，初步发现了一个Post-Auth的缓冲区溢出漏洞，可导致拒绝服务攻击。</p>
-<p>漏洞点位于 <code>sub_83A90</code>，该函数是 <code>usb_device.cgi</code> 的处理函数，如下图所示。</p>
-<img src="/images/image-20240227172709136.png" alt="image-20240227172709136" style="zoom:60%;" />
-<img src="/images/image-20240227172722737.png" alt="image-20240227172722737" style="zoom:67%;" />
-<p>函数 <code>sub_83A90</code> 中使用 <code>web_get_var</code> 接收用户数据，并将 <code>share_name</code> 数据存储在变量 <code>v44</code> 中，其长度最多可以达到2048字节。然后，该函数使用 <code>strcpy</code> 将接收到的数据复制到由 <code>v52</code> 指向的栈缓冲区中，导致栈溢出。</p>
-<p>相关信息已上报CNVD，并获得编号CNVD-2023-87691。</p>
-<h2 id="4-小结">4. 小结</h2>
-<p>整个漏洞挖掘、分析的过程还算比较常规。但事实上，现有的一些自动化漏洞挖掘工作并不能很好地发现此类漏洞，因为函数指针和间接调用等情况，自动化分析仍存在一些困难。后面自己实践的过程中，需要尽量去发现一些共性问题，从而提炼出通用且有效的方法。</p>
-<p>此外，Netgear与<a href="https://bugcrowd.com/programs"  target="_blank" rel="noopener" >bugcrowd</a>有合作，有一些漏洞激励计划，后续可以尝试挖一下有bonus的型号。</p>
-<p>后记：后面发现ISSTA 2023一篇论文[3]的motivation example和本文中的case具有一定的共性，都是需要处理函数指针、间接调用的问题。但自己就没能以此为切入点提炼、总结出一个较完整的工作，还是值得反思的。</p>
-<h2 id="参考">参考</h2>
-<p>[1] Sharing More And Checking Less: Leveraging Common Input Keywords to Detect Bugs in Embedded Systems (USENIX Security 2021)</p>
-<p>[2] Karonte: Detecting insecure multi-binary interactions in embedded firmware (S&amp;P 2020)</p>
-<p>[3] Detecting Vulnerabilities in Linux-Based Embedded Firmware with SSE-Based On-Demand Alias Analysis (ISSTA 2023)</p>
+<p>然后会进入以下的程序中，会取出传入数据的MX:至\r\n的数据内容并拷贝到栈上。</p>
+<!-- ![](https://notes.sjtu.edu.cn/uploads/upload_eb55d1733396a9fce04299dd509d71e1.png) -->
+<img src="/images/upload_eb55d1733396a9fce04299dd509d71e1.png" style="zoom:100%;" />
+<p>由于输入整个数据包的长度最大为0x1fff，而这里的栈上buffer大小明显小于我们所可控的数据长度，因此可发生栈溢出。</p>
+<h3 id="模拟过程-1">模拟过程</h3>
+<p>从哪里开始模拟？一种解决方案——snapshot</p>
+<ul>
+<li>让程序先从入口点开始执行，执行到main函数开头后，保存当前的所有执行状态，然后直接修改pc寄存器到我们需要模拟的函数开头处</li>
+<li>实质是一种构造函数call_state的方法</li>
+</ul>
+<p>在本例当中，我们选择sub_199B4函数作为我们需要模拟的函数，因为这个函数没有参数，而且包含了socket的创建过程和整个漏洞函数。</p>
+<p>Qiling能自己模拟libc库中的函数，但是无法模拟NVRAM硬件支持的函数，解决方案：hook修改返回值</p>
+<ol>
+<li>acosNvramConfig_get</li>
+<li>acosNvramConfig_match</li>
+</ol>
+<h3 id="调试方法-1">调试方法</h3>
+<ol>
+<li>使用gdb进行远程调试（对异构的支持不太好，但是可以试试）</li>
+<li>使用qdb进行调试（qiling内置的debugger）</li>
+<li>使用pyhton的调试器ipdb，可以hook对应的地址选择对应的操作。</li>
+</ol>
+<p>在Qiling脚本中添加：<code>from ipdb import set_trace</code></p>
+<p>在想要停止的位置address添加hook代码：<code>ql.hook_address(callback, address)</code></p>
+<p>在callback函数中添加<code>set_trace()</code></p>
+<p>然后通过<code>python3 -m ipdb sim_xr300.py</code>来运行脚本</p>
+<p>在callback函数中会停止运行，这个时候可以交互式地使用python代码来查询对应的寄存器和内存。比如以下的命令：</p>
+<pre tabindex="0"><code>#从内存中读取字符串
+ql.mem.string(address)
+#在栈偏移offset的地方读取内存
+ql.stack_read(offset)
+#读取address地方的size大小的内存
+ql.mem.read(address, size)
+#读取sp寄存器
+ql.arch.regs.sp
+#读取map的区域分布
+ql.mem.show_mapinfo()
+</code></pre><p><strong>作业要求：</strong></p>
+<p>分析upnpd二进制，在<code>exp_release.py</code>的基础上完善利用脚本，构造ROP链执行<code>system(&quot;/bin/sh&quot;)</code>以获取shell。
+（可以在解包后的文件系统根目录下新建一个flag文件，利用成功的效果就是能够读取flag内容）</p>
+<p>注意：通过ROP执行<code>system(&quot;/bin/sh&quot;)</code>后，<code>cat flag</code>的命令是在qiling模拟的那个窗口中输入的，和CTF中常见的pwn题环境不太一样。</p>
 
     </article>
   </div>

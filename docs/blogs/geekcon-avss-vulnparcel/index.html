@@ -426,6 +426,29 @@ ASP_handlers_list数组：记录每种ASP操作与handler函数的映射关系�
       </a>
       
       <a class="article block px-3 py-4  hover:bg-slate-200 dark:hover:bg-slate-700 "
+        href="/blogs/iot-practice-session/">
+        
+        
+        <h3 class="text-lg font-semibold mb-0.5">IoT Practice Session</h3>
+        <div
+          class="text-sm  text-slate-500 dark:text-slate-400  line-clamp-2">
+          本文内容仅用于个人存档和技术交流学习，禁止使用文中内容进行未授权或恶意的攻击行为。
+本文用于记录上海交大 NIS8017 Course，固件模拟习题课的相关材料。
+附件下载 下载地址：https://drive.google.com/file/d/1Co4NSlLv1aCTQHIYwUsyTc5SX2wsVHrq/view?usp=drive_link
+系统级固件模拟（D-Link DIR823G） 系统级模拟的优势：
+更加稳定，利用整个内核和文件系统 支持一些系统级别的配置 使用FirmAE模拟DIR823G，并对goahead服务进行调试。
+课前准备 请大家按照Github提供的指示，在Linux环境下安装并配置好FirmAE框架。
+感兴趣的同学可以进一步阅读相关论文：
+Towards automated dynamic analysis for linux-based embedded firmware FirmAE: Towards large-scale emulation of IoT firmware for dynamic analysis 这部分附件的文件结构如下。 （如果在使用FirmAE/download.sh下载FirmAE所需依赖时遇到网络问题，可下载binaries，并将其中的二进制文件拷贝到FirmAE对应的文件夹中）
+.├── DIR823GA1_FW102B03.bin└── exp_release.py 模拟过程 将附件中的固件复制到FirmAE/firmwares/后，执行以下命令：
+cd FirmAE/ sudo ./run.sh -r dlink ./firmwares/DIR823GA1_FW102B03.bin # run mode # or sudo ./run.sh -d dlink ./firmwares/DIR823GA1_FW102B03.bin # user-level debug mode 以debug模式为例，模拟成功后会提供如下界面：
+访问http://192.168.0.1/也可以看到路由器的管理界面。
+注意，第一次模拟需要的时间会比较长，约10~20min，因为FirmAE需要对固件的网络配置进行推断。第一次模拟成功后，FirmAE会把相关配置记录到数据库中，下一次模拟就会比较快了。
+调试方法 使用上述debug模式模拟固件后，有五种操作可供选择，选择2. connext to shell连接到shell，可以看到/firmadyne下已经准备好了一些工具。
+        </div>
+      </a>
+      
+      <a class="article block px-3 py-4  hover:bg-slate-200 dark:hover:bg-slate-700 "
         href="/blogs/sjtuctf2023-babyheap/">
         
         
